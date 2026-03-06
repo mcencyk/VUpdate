@@ -1,12 +1,14 @@
 // logoSize: optical size override per brand (maxWidth, maxHeight)
 const BRANDS = [
-  { id: 'audi',  name: 'Audi',       logo: '/assets/audi.svg',  variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 82, maxHeight: 28 } },
-  { id: 'ford',  name: 'Ford',       logo: '/assets/ford.svg',  variants: ['Commercial','Public'],        logoSize: { maxWidth: 76, maxHeight: 30 } },
-  { id: 'vw',    name: 'Volkswagen', logo: '/assets/vw.svg',    variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 52, maxHeight: 52 } },
-  { id: 'skoda', name: 'Skoda',      logo: '/assets/skoda.svg', variants: ['Commercial','Public'],        logoSize: { maxWidth: 52, maxHeight: 52 } },
-  { id: 'seat',  name: 'SEAT',       logo: '/assets/seat.svg',  variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 52, maxHeight: 36 } },
-  { id: 'volvo', name: 'Volvo',      logo: '/assets/volvo.svg', variants: ['Commercial'],                 logoSize: { maxWidth: 52, maxHeight: 52 } },
+  { id: 'audi',  name: 'Audi',       logo: 'assets/audi.svg',  variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 82, maxHeight: 28 } },
+  { id: 'ford',  name: 'Ford',       logo: 'assets/ford.svg',  variants: ['Commercial','Public'],        logoSize: { maxWidth: 76, maxHeight: 30 } },
+  { id: 'vw',    name: 'Volkswagen', logo: 'assets/vw.svg',    variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 52, maxHeight: 52 } },
+  { id: 'skoda', name: 'Skoda',      logo: 'assets/skoda.svg', variants: ['Commercial','Public'],        logoSize: { maxWidth: 52, maxHeight: 52 } },
+  { id: 'seat',  name: 'SEAT',       logo: 'assets/seat.svg',  variants: ['Commercial','Public','Test'], logoSize: { maxWidth: 52, maxHeight: 36 } },
+  { id: 'volvo', name: 'Volvo',      logo: 'assets/volvo.svg', variants: ['Commercial'],                 logoSize: { maxWidth: 52, maxHeight: 52 } },
 ];
+
+const base = import.meta.env.BASE_URL;
 
 const cardBase = {
   flex: 1,
@@ -46,7 +48,7 @@ export default function BrandGrid({ selected, onSelect }) {
                 onClick={() => onSelect(brand)}
               >
                 <img
-                  src={brand.logo}
+                  src={base + brand.logo}
                   alt={brand.name}
                   style={{
                     maxWidth: brand.logoSize.maxWidth,
