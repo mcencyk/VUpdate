@@ -103,6 +103,7 @@ function NavIcon({ icon, active, badge, onClick }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 9, fontWeight: 700, color: '#fff',
             fontFamily: "'Inter', sans-serif",
+            boxShadow: '0 2px 6px rgba(180,40,20,0.55), 0 1px 2px rgba(0,0,0,0.3)',
           }}>
             {badge}
           </div>
