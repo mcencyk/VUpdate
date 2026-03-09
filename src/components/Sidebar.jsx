@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BRANDS } from './BrandGrid';
 
 const base = import.meta.env.BASE_URL;
 
@@ -137,70 +138,393 @@ function NavIcon({ icon, active, badge, onClick }) {
   );
 }
 
-export default function Sidebar({ activeNav, onNavChange, attentionCount }) {
+// ─── Profile settings row ─────────────────────────────────────────────────────
+function SettingsRow({ label, value }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{
-      width: 80,
-      display: 'flex',
-      flexDirection: 'column',
-      flexShrink: 0,
-      background: '#012d42',
-      border: '1px solid #004666',
-      borderRadius: 24,
-      boxShadow: '0px 0px 12px 0px rgba(0,30,45,0.32)',
-      overflow: 'hidden',
-    }}>
-      {/* Logo + GVU PRO */}
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 8, paddingTop: 24, paddingBottom: 12,
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 16,
+        height: 32, padding: '0 12px', borderRadius: 6,
+        background: hovered ? 'rgba(0,70,102,0.38)' : 'rgba(0,70,102,0.24)',
+        cursor: 'pointer', transition: 'background 0.15s',
+      }}
+    >
+      <span style={{
+        flex: 1, fontSize: 12, fontWeight: 500, color: '#ffffff',
+        fontFamily: "'Inter', sans-serif",
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
-        <img
-          src={base + 'assets/vw.svg'}
-          alt="VW"
-          style={{ width: 32, height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-        />
-        <div style={{ textAlign: 'center', fontFamily: "'Montserrat', sans-serif", fontWeight: 700 }}>
-          <div style={{ fontSize: 13, letterSpacing: 0.3, color: '#ffffff', lineHeight: '16px' }}>GVU</div>
-          <div style={{ fontSize: 8, letterSpacing: 2.5, color: '#ccdfe9', opacity: 0.5, lineHeight: '12px' }}>PRO</div>
+        {label}
+      </span>
+      <span style={{
+        fontSize: 10, fontWeight: 700, color: '#ccdfe9',
+        fontFamily: "'Inter', sans-serif",
+        letterSpacing: 1.2, textTransform: 'uppercase',
+      }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ─── Brand tile for profile overlay ──────────────────────────────────────────
+function ProfileBrandTile({ brand, active, onClick }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={() => onClick(brand.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flex: 1, height: 72,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '12px 16px', borderRadius: 16, cursor: 'pointer',
+        background: active ? '#00354d' : hovered ? '#013d58' : '#012d42',
+        border: active ? '2px solid #28779c' : hovered ? '2px solid #1e6080' : '2px solid transparent',
+        boxShadow: active
+          ? '0px 0px 8px 0px rgba(40,119,156,0.32), inset 0px 0px 4px 0px rgba(0,0,0,0.24)'
+          : '0px 0px 2px 0px rgba(0,0,0,0.24)',
+        transition: 'all 0.15s',
+        boxSizing: 'border-box',
+      }}
+    >
+      <img
+        src={base + brand.logo}
+        alt={brand.name}
+        style={{
+          maxWidth: Math.round(brand.logoSize.maxWidth * 0.75),
+          maxHeight: Math.round(brand.logoSize.maxHeight * 0.75),
+          width: '100%', height: '100%', objectFit: 'contain',
+          filter: 'brightness(0) invert(1)',
+        }}
+      />
+    </div>
+  );
+}
+
+function CloseButton({ onClose }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={onClose}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: 24, height: 24,
+          background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer',
+          color: hovered ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'color 0.15s',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+      {hovered && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '3px 8px', borderRadius: 4,
+          background: '#012d42', border: '1px solid #153f53',
+          fontSize: 10, fontWeight: 600, color: '#80b0c8',
+          fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
+          pointerEvents: 'none', zIndex: 110,
+        }}>
+          Close
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Profile overlay ──────────────────────────────────────────────────────────
+function ProfileOverlay({ onClose }) {
+  const [activeBrand, setActiveBrand] = useState('audi');
+  const [closing, setClosing] = useState(false);
+  const brandRows = [BRANDS.slice(0, 2), BRANDS.slice(2, 4), BRANDS.slice(4, 6)];
+
+  function handleClose() {
+    setClosing(true);
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={handleClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 99,
+        }}
+      />
+      {/* Panel */}
+      <div
+        onAnimationEnd={() => { if (closing) onClose(); }}
+        style={{
+          position: 'fixed',
+          left: 120,
+          bottom: 24,
+          width: 316,
+          background: 'rgba(1,45,66,0.82)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid #153f53',
+          borderRadius: 24,
+          boxShadow: '0px 0px 12px 0px rgba(0,0,0,0.24)',
+          animation: closing
+            ? 'profileFadeOut 0.18s ease forwards'
+            : 'profileFadeIn 0.22s ease',
+          padding: '24px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 24,
+          zIndex: 100,
+          maxHeight: 'calc(100vh - 48px)',
+          boxSizing: 'border-box',
+          overflow: 'visible',
+        }}
+      >
+
+        {/* Close button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <CloseButton onClose={handleClose} />
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 24, flexShrink: 1, minHeight: 0 }}>
+
+        {/* Avatar + name */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+          {/* Avatar with blurred decorative blobs */}
+          <div style={{ position: 'relative', width: 108, height: 108 }}>
+            {/* Decorative blur blobs */}
+            <div style={{
+              position: 'absolute', top: -6, left: -3,
+              width: 99, height: 99, borderRadius: 24,
+              background: 'rgba(40,119,156,0.28)',
+              filter: 'blur(12px)', pointerEvents: 'none',
+            }} />
+            <div style={{
+              position: 'absolute', top: 38, left: 63,
+              width: 64, height: 64, borderRadius: 16,
+              background: 'rgba(40,119,156,0.22)',
+              filter: 'blur(12px)', pointerEvents: 'none',
+            }} />
+            {/* Avatar circle */}
+            <div style={{
+              position: 'relative',
+              width: 108, height: 108, borderRadius: 32,
+              background: 'linear-gradient(135deg, #005478 0%, #003050 100%)',
+              border: '1px solid rgba(40,119,156,0.4)',
+              boxShadow: '0px 0px 32px 0px rgba(0,0,0,0.32)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{
+                fontSize: 32, fontWeight: 700, color: 'rgba(204,223,233,0.85)',
+                fontFamily: "'Inter', sans-serif", letterSpacing: 1,
+              }}>
+                JS
+</span>
+            </div>
+          </div>
+
+          {/* Name + role */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <span style={{
+              fontSize: 20, fontWeight: 600, color: '#ffffff',
+              fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.4,
+              whiteSpace: 'nowrap',
+            }}>
+              John Smith
+            </span>
+            <span style={{
+              fontSize: 12, fontWeight: 600, color: '#ccdfe9',
+              fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.06,
+              whiteSpace: 'nowrap',
+            }}>
+              System Admin
+            </span>
+          </div>
+        </div>
+
+        {/* Settings list */}
+        <div style={{
+          background: '#012d42', border: '1px solid #153f53', borderRadius: 16,
+          boxShadow: '0px 0px 2px 0px rgba(0,0,0,0.24)',
+          padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <SettingsRow label="Password" value="CHANGE" />
+          <SettingsRow label="Language" value="ENGLISH" />
+          <SettingsRow label="Licenses" value="SHOW" />
+        </div>
+
+        {/* Brand grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {brandRows.map((row, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: 8 }}>
+              {row.map(brand => (
+                <ProfileBrandTile
+                  key={brand.id}
+                  brand={brand}
+                  active={activeBrand === brand.id}
+                  onClick={setActiveBrand}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        </div>{/* end scrollable */}
+
+        {/* Footer buttons */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <ProfileButton disabled={activeBrand === 'audi'} onClick={handleClose}>Switch Tenant</ProfileButton>
+          <ProfileButton primary onClick={handleClose}>Logout</ProfileButton>
         </div>
       </div>
+    </>
+  );
+}
 
-      <Divider />
+function ProfileButton({ children, primary, disabled, onClick }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '10px 18px', borderRadius: 8,
+        cursor: disabled ? 'default' : 'pointer',
+        fontSize: 10, fontWeight: 700,
+        fontFamily: "'Inter', sans-serif",
+        letterSpacing: 1.2, textTransform: 'uppercase',
+        transition: 'background 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.15s',
+        opacity: disabled ? 0.35 : 1,
+        ...(primary ? {
+          color: '#ccdfe9',
+          background: hovered ? '#005a80' : '#004666',
+          border: 'none',
+          boxShadow: hovered
+            ? '0px 2px 8px 0px rgba(0,37,55,0.48)'
+            : '0px 1px 4px 0px rgba(0,37,55,0.32)',
+        } : {
+          color: disabled ? 'rgba(128,176,200,0.6)' : '#ccdfe9',
+          background: hovered ? '#01374f' : '#012d42',
+          border: hovered ? '1px solid #1e6080' : '1px solid #004666',
+        }),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
-      <NavIcon icon={<AfterSalesIcon />} active={activeNav === 'aftersales'} badge={attentionCount} onClick={() => onNavChange('aftersales')} />
-      <NavIcon icon={<SearchCarIcon />} active={activeNav === 'people'} onClick={() => onNavChange('people')} />
-      <NavIcon icon={<SettingsCarIcon />} active={activeNav === 'settings'} onClick={() => onNavChange('settings')} />
-
-      <Divider />
-
-      <NavIcon icon={<BellIcon />} active={activeNav === 'bell'} badge={1} onClick={() => onNavChange('bell')} />
-      <NavIcon icon={<CalendarDownIcon />} active={activeNav === 'calendar'} onClick={() => onNavChange('calendar')} />
-
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      <Divider />
-
-      <NavIcon icon={<ChevronRightIcon />} onClick={() => {}} />
-      <NavIcon icon={<GearIcon />} onClick={() => {}} />
-
-      {/* Avatar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '12px 0 16px',
-      }}>
-        <div style={{
+function AvatarButton({ profileOpen, onClick }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
           width: 40, height: 40, borderRadius: 10,
-          background: '#004666',
+          background: profileOpen || hovered ? '#005a80' : '#004666',
+          border: profileOpen ? '2px solid #28779c' : '2px solid transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 13, fontWeight: 700, color: '#80b0c8',
           fontFamily: "'Inter', sans-serif",
           cursor: 'pointer',
+          boxShadow: profileOpen ? '0px 0px 8px 0px rgba(40,119,156,0.32)' : 'none',
+          transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+          boxSizing: 'border-box',
+        }}
+      >
+        JS
+      </div>
+      {hovered && !profileOpen && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '3px 8px', borderRadius: 4,
+          background: '#012d42', border: '1px solid #153f53',
+          fontSize: 10, fontWeight: 600, color: '#80b0c8',
+          fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
+          pointerEvents: 'none', zIndex: 110,
         }}>
-          MC
+          User Profile
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Sidebar({ activeNav, onNavChange, attentionCount }) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  return (
+    <>
+      <div style={{
+        width: 80,
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        background: '#012d42',
+        border: '1px solid #004666',
+        borderRadius: 24,
+        boxShadow: '0px 0px 12px 0px rgba(0,30,45,0.32)',
+        overflow: 'hidden',
+      }}>
+        {/* Logo + GVU PRO */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 8, paddingTop: 24, paddingBottom: 12,
+        }}>
+          <img
+            src={base + 'assets/vw.svg'}
+            alt="VW"
+            style={{ width: 32, height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+          />
+          <div style={{ textAlign: 'center', fontFamily: "'Montserrat', sans-serif", fontWeight: 700 }}>
+            <div style={{ fontSize: 13, letterSpacing: 0.3, color: '#ffffff', lineHeight: '16px' }}>GVU</div>
+            <div style={{ fontSize: 8, letterSpacing: 2.5, color: '#ccdfe9', opacity: 0.5, lineHeight: '12px' }}>PRO</div>
+          </div>
+        </div>
+
+        <Divider />
+
+        <NavIcon icon={<AfterSalesIcon />} active={activeNav === 'aftersales'} badge={attentionCount} onClick={() => onNavChange('aftersales')} />
+        <NavIcon icon={<SearchCarIcon />} active={activeNav === 'people'} onClick={() => onNavChange('people')} />
+        <NavIcon icon={<SettingsCarIcon />} active={activeNav === 'settings'} onClick={() => onNavChange('settings')} />
+
+        <Divider />
+
+        <NavIcon icon={<BellIcon />} active={activeNav === 'bell'} badge={1} onClick={() => onNavChange('bell')} />
+        <NavIcon icon={<CalendarDownIcon />} active={activeNav === 'calendar'} onClick={() => onNavChange('calendar')} />
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        <Divider />
+
+        <NavIcon icon={<ChevronRightIcon />} onClick={() => {}} />
+        <NavIcon icon={<GearIcon />} onClick={() => {}} />
+
+        {/* Avatar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '12px 0 16px',
+        }}>
+          <AvatarButton profileOpen={profileOpen} onClick={() => setProfileOpen(o => !o)} />
         </div>
       </div>
-    </div>
+
+      {profileOpen && <ProfileOverlay onClose={() => setProfileOpen(false)} />}
+    </>
   );
 }

@@ -19,6 +19,16 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes profileFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@keyframes profileFadeOut {
+  from { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
 .filter-panel-wrapper {
   display: grid;
   grid-template-rows: 0fr;
