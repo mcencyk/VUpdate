@@ -8,7 +8,6 @@ const STATUS = {
   DRAFT:            { bg: 'rgba(170,135,25,0.22)',   color: '#c8a028', dot: '#c8a028' },
   COMPLETED:        { bg: 'rgba(40,140,80,0.2)',     color: '#38b060', dot: '#38b060' },
   FAILED:           { bg: 'rgba(180,40,40,0.22)',    color: '#cc3333', dot: '#cc3333' },
-  'ABORT APPROVAL': { bg: 'rgba(200,70,20,0.22)',    color: '#d04822', dot: '#d04822' },
   CALCULATED:       { bg: 'rgba(80,110,130,0.2)',    color: '#607890', dot: '#607890' },
 };
 
@@ -66,7 +65,11 @@ const TABS_TOP = [
   { id: 'attention', label: 'NEED ATTENTION', count: 2 },
 ];
 
-const TABS_BOTTOM = ['CAMPAIGNS', 'RECALL CRITERIONS', 'VEHICLES'];
+const TABS_BOTTOM = [
+  { id: 'CAMPAIGNS',  label: 'CAMPAIGNS',  tooltip: 'New Campaign' },
+  { id: 'CRITERIONS', label: 'CRITERIONS', tooltip: 'New Recall' },
+  { id: 'VEHICLES',   label: 'VEHICLES',   tooltip: 'New Vehicle' },
+];
 
 const COLUMNS = [
   { key: 'name',     label: 'CAMPAIGN NAME',       flex: 3   },
@@ -137,7 +140,7 @@ function SearchIcon() {
   );
 }
 
-function BottomTab({ label, active, onClick }) {
+function BottomTab({ label, tooltip, active, onClick }) {
   const [hovered, setHovered] = useState(false);
   const [plusHovered, setPlusHovered] = useState(false);
   return (
@@ -156,6 +159,7 @@ function BottomTab({ label, active, onClick }) {
         letterSpacing: 0.8, textTransform: 'uppercase',
         boxShadow: active ? '0px 0px 8px 0px rgba(40,119,156,0.32)' : 'none',
         transition: 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s',
+        position: 'relative',
       }}
     >
       {label}
@@ -167,9 +171,23 @@ function BottomTab({ label, active, onClick }) {
           background: plusHovered ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background 0.15s',
+          position: 'relative',
         }}
       >
         <PlusIcon />
+        {plusHovered && tooltip && (
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 7px)', left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '3px 8px', borderRadius: 4,
+            background: '#012d42', border: '1px solid #153f53',
+            fontSize: 10, fontWeight: 600, color: '#80b0c8',
+            fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
+            pointerEvents: 'none', zIndex: 20,
+          }}>
+            {tooltip}
+          </div>
+        )}
       </span>
     </button>
   );
@@ -346,7 +364,7 @@ function FilterPanel({ filters, onChange, activeFilterCount }) {
 export default function DashboardView() {
   const [activeNav, setActiveNav] = useState('aftersales');
   const [activeTopTab, setActiveTopTab] = useState('all');
-  const [activeBottomTab, setActiveBottomTab] = useState('CAMPAIGNS');
+  const [activeBottomTab, setActiveBottomTab] = useState('CAMPAIGNS');  // id
   const [searchValue, setSearchValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -362,6 +380,17 @@ export default function DashboardView() {
   const tabFiltered = CAMPAIGNS
     .filter(TAB_FILTER[activeTopTab] ?? TAB_FILTER.all)
     .filter(r => {
+      if (filters.statuses.length && !filters.statuses.includes(r.statuses[0])) return false;
+      if (filters.types.length && !filters.types.includes(r.type)) return false;
+      if (filters.codes.length && !filters.codes.includes(r.code)) return false;
+      if (filters.dateFrom) {
+        const [d, m, y] = r.date.split('.');
+        if (new Date(`${y}-${m}-${d}`) < new Date(filters.dateFrom)) return false;
+      }
+      if (filters.dateTo) {
+        const [d, m, y] = r.date.split('.');
+        if (new Date(`${y}-${m}-${d}`) > new Date(filters.dateTo)) return false;
+      }
       if (!searchLower) return true;
       return [r.name, r.code, r.crit, r.spec, r.measure, r.type, r.date, r.statuses[0], r.vehicles]
         .some(v => v.toLowerCase().includes(searchLower));
@@ -381,17 +410,18 @@ export default function DashboardView() {
     );
   }
 
-  const totalCount = searchLower ? tabFiltered.length : (TAB_TOTAL[activeTopTab] ?? 372);
-  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
-  const displayEnd = Math.min(PER_PAGE, totalCount);
-  const pages = buildPages(totalPages);
-
   const activeFilterCount =
     filters.statuses.length +
     filters.types.length +
     filters.codes.length +
     (filters.dateFrom ? 1 : 0) +
     (filters.dateTo ? 1 : 0);
+
+  const filtersActive = searchLower || activeFilterCount > 0;
+  const totalCount = filtersActive ? tabFiltered.length : (TAB_TOTAL[activeTopTab] ?? 372);
+  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+  const displayEnd = Math.min(PER_PAGE, totalCount);
+  const pages = buildPages(totalPages);
 
   const headerCell = {
     fontSize: 10, fontWeight: 700, color: 'rgba(128,176,200,0.6)',
@@ -427,7 +457,7 @@ export default function DashboardView() {
             fontFamily: "'Montserrat', sans-serif", whiteSpace: 'nowrap',
             letterSpacing: 0.3,
           }}>
-            Campaigns
+            Overview
           </span>
 
           {/* Divider */}
@@ -705,10 +735,11 @@ export default function DashboardView() {
         }}>
           {TABS_BOTTOM.map(tab => (
             <BottomTab
-              key={tab}
-              label={tab}
-              active={activeBottomTab === tab}
-              onClick={() => setActiveBottomTab(tab)}
+              key={tab.id}
+              label={tab.label}
+              tooltip={tab.tooltip}
+              active={activeBottomTab === tab.id}
+              onClick={() => setActiveBottomTab(tab.id)}
             />
           ))}
         </div>
