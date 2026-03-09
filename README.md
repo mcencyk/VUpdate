@@ -18,4 +18,4 @@ React + Vite implementation of the **ITERU** dashboard — a fleet campaign mana
 
 ## Live preview
 
-[mcencyk.github.io/VUpdate](https://mcencyk.github.io/VUpdate/)
+[mcencyk.github.io/iteru](https://mcencyk.github.io/iteru/)
