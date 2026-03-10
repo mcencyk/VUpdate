@@ -226,6 +226,7 @@ const FILTER_TYPES = ['Partial', 'Full'];
 const FILTER_CODES = ['FA01', 'SE03', 'KE05', 'PU01'];
 
 function FilterPanel({ filters, onChange, activeFilterCount }) {
+  const [resetHovered, setResetHovered] = useState(false);
   return (
     <div style={{
       display: 'flex', gap: 24, padding: '12px 16px',
@@ -346,14 +347,20 @@ function FilterPanel({ filters, onChange, activeFilterCount }) {
       {/* Reset — right edge */}
       <span
         onClick={() => activeFilterCount > 0 && onChange({ statuses: [], types: [], codes: [], dateFrom: '', dateTo: '' })}
+        onMouseEnter={() => activeFilterCount > 0 && setResetHovered(true)}
+        onMouseLeave={() => setResetHovered(false)}
         style={{
           marginLeft: 'auto', alignSelf: 'flex-end',
           padding: '10px 18px', borderRadius: 8,
           cursor: activeFilterCount > 0 ? 'pointer' : 'default',
-          background: activeFilterCount > 0 ? 'rgba(180,40,40,0.15)' : 'rgba(255,255,255,0.03)',
-          border: activeFilterCount > 0 ? '1px solid rgba(180,40,40,0.45)' : '1px solid rgba(255,255,255,0.08)',
+          background: activeFilterCount > 0
+            ? (resetHovered ? 'rgba(180,40,40,0.28)' : 'rgba(180,40,40,0.15)')
+            : 'rgba(255,255,255,0.03)',
+          border: activeFilterCount > 0
+            ? (resetHovered ? '1px solid rgba(180,40,40,0.75)' : '1px solid rgba(180,40,40,0.45)')
+            : '1px solid rgba(255,255,255,0.08)',
           fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase',
-          color: activeFilterCount > 0 ? '#e06060' : 'rgba(128,176,200,0.25)',
+          color: activeFilterCount > 0 ? (resetHovered ? '#ff8080' : '#e06060') : 'rgba(128,176,200,0.25)',
           fontFamily: "'Inter',sans-serif",
           transition: 'all 0.15s',
           userSelect: 'none',
@@ -371,10 +378,17 @@ const LOAD_STEPS_CAMPAIGN = [
   'Preparing campaign view',
 ];
 
+const LOAD_STEPS_BACK = [
+  'Syncing campaign updates',
+  'Refreshing campaign list',
+  'Loading dashboard',
+];
+
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function DashboardView({ activeBrand, onBrandChange, onLogout }) {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [loadingCampaign, setLoadingCampaign] = useState(null);
+  const [loadingBack, setLoadingBack] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
   const [loaderVisible, setLoaderVisible] = useState(false);
   const [activeNav, setActiveNav] = useState('aftersales');
@@ -403,8 +417,61 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
     }, 1600);
   }
 
+  function handleCampaignBack() {
+    setSelectedCampaign(null);
+    setLoadingBack(true);
+    setLoadStep(0);
+    requestAnimationFrame(() => requestAnimationFrame(() => setLoaderVisible(true)));
+    setTimeout(() => setLoadStep(1), 450);
+    setTimeout(() => setLoadStep(2), 900);
+    setTimeout(() => setLoaderVisible(false), 1300);
+    setTimeout(() => { setLoadingBack(false); setLoadStep(0); }, 1600);
+  }
+
   if (selectedCampaign) {
-    return <CampaignDetailView campaign={selectedCampaign} onBack={() => setSelectedCampaign(null)} />;
+    return <CampaignDetailView campaign={selectedCampaign} onBack={handleCampaignBack} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />;
+  }
+
+  if (loadingBack) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '100vw', height: '100vh',
+        background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)',
+        backgroundColor: '#003050',
+      }}>
+        <div style={{
+          opacity: loaderVisible ? 1 : 0, transition: 'opacity 0.3s ease',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28,
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.5 }}>
+              Returning to dashboard
+            </div>
+          </div>
+          <div style={{
+            width: 28, height: 28, borderRadius: '50%',
+            border: '2px solid rgba(128,176,200,0.15)', borderTopColor: '#28a0c8',
+            animation: 'iteruSpin 0.85s linear infinite',
+          }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {LOAD_STEPS_BACK.map((s, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                fontSize: 11, fontFamily: "'Inter', sans-serif", fontWeight: 500, letterSpacing: 0.2,
+                color: i < loadStep ? 'rgba(56,176,96,0.85)' : i === loadStep ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.2)',
+                transition: 'color 0.3s ease',
+              }}>
+                <span style={{ width: 14, display: 'flex', justifyContent: 'center', fontSize: i < loadStep ? 11 : 13 }}>
+                  {i < loadStep ? '✓' : i === loadStep ? '›' : '·'}
+                </span>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loadingCampaign) {

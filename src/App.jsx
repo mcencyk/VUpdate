@@ -291,7 +291,7 @@ export default function App() {
           </svg>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center', width: '100%' }}>
           <div style={{
             fontSize: 17, fontWeight: 700, color: '#ffffff',
             fontFamily: "'Inter', sans-serif", letterSpacing: 0.2,

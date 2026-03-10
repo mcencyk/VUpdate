@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Sidebar from './Sidebar';
 
 // ─── Status badge (reused from DashboardView) ────────────────────────────────
@@ -28,6 +28,31 @@ function StatusBadge({ status }) {
   );
 }
 
+// ─── Smooth count-up animation hook ──────────────────────────────────────────
+function useCountUp(target, duration = 480) {
+  const [current, setCurrent] = useState(target);
+  const fromRef = useRef(target);
+  const rafRef  = useRef(null);
+
+  useEffect(() => {
+    const from = fromRef.current;
+    if (from === target) return;
+    fromRef.current = target;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const t0 = performance.now();
+    function tick(now) {
+      const p = Math.min((now - t0) / duration, 1);
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // ease-in-out quad
+      setCurrent(Math.round(from + (target - from) * e));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  return current;
+}
+
 // ─── Trend arrow ─────────────────────────────────────────────────────────────
 function Trend({ dir }) {
   // dir: 'up' (positive/green), 'down' (negative/red), 'neutral'
@@ -47,6 +72,9 @@ function Trend({ dir }) {
 
 // ─── Small stat card ─────────────────────────────────────────────────────────
 function StatCard({ value, unit, trend, label, sub }) {
+  const isNum = typeof value === 'number';
+  const animated = useCountUp(isNum ? value : 0);
+  const display = isNum ? animated : value;
   return (
     <div style={{
       flex: 1, minWidth: 0,
@@ -56,7 +84,7 @@ function StatCard({ value, unit, trend, label, sub }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif", lineHeight: 1 }}>
-          {value}
+          {display}
         </span>
         {unit && (
           <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(128,176,200,0.7)', fontFamily: "'Inter', sans-serif" }}>
@@ -79,6 +107,10 @@ function StatCard({ value, unit, trend, label, sub }) {
 
 // ─── Progress stat card ───────────────────────────────────────────────────────
 function ProgressCard({ value, trend, label, barColor, barWidth, empty }) {
+  const numMatch = !empty && typeof value === 'string' ? value.match(/^(\d+)%$/) : null;
+  const numValue = numMatch ? parseInt(numMatch[1], 10) : 0;
+  const animated = useCountUp(numValue);
+  const display = numMatch ? `${animated}%` : value;
   return (
     <div style={{
       flex: 1, minWidth: 0,
@@ -89,7 +121,7 @@ function ProgressCard({ value, trend, label, barColor, barWidth, empty }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
           <span style={{ fontSize: 22, fontWeight: 700, color: empty ? 'rgba(128,176,200,0.3)' : '#ffffff', fontFamily: "'Inter', sans-serif", lineHeight: 1 }}>
-            {value}
+            {display}
           </span>
           {!empty && trend && <Trend dir={trend} />}
         </div>
@@ -105,27 +137,204 @@ function ProgressCard({ value, trend, label, barColor, barWidth, empty }) {
   );
 }
 
-// ─── Filter dropdown (visual only) ───────────────────────────────────────────
-function FilterDropdown({ label }) {
+// ─── Country pools per campaign region ───────────────────────────────────────
+const REGION_COUNTRIES = {
+  middle_europe:   ['Germany', 'Austria', 'Czech Republic', 'Poland', 'Hungary', 'Slovakia', 'Slovenia', 'Croatia', 'Switzerland', 'Belgium'],
+  east_europe:     ['Ukraine', 'Romania', 'Bulgaria', 'Serbia', 'Moldova', 'Belarus', 'Montenegro', 'North Macedonia', 'Kosovo', 'Albania'],
+  middle_east:     ['UAE', 'Saudi Arabia', 'Turkey', 'Israel', 'Egypt', 'Qatar', 'Kuwait', 'Jordan', 'Bahrain', 'Oman'],
+  north_america:   ['USA', 'Canada', 'Mexico', 'Puerto Rico', 'Cuba', 'Dominican Republic', 'Guatemala', 'Costa Rica', 'Panama', 'Honduras'],
+  nordic:          ['Sweden', 'Norway', 'Denmark', 'Finland', 'Iceland', 'Greenland', 'Faroe Islands', 'Estonia', 'Latvia', 'Lithuania'],
+  west_europe:     ['France', 'Spain', 'Portugal', 'Netherlands', 'Belgium', 'Luxembourg', 'UK', 'Ireland', 'Monaco', 'Andorra'],
+  central_europe:  ['Germany', 'Poland', 'Czech Republic', 'Hungary', 'Slovakia', 'Austria', 'Romania', 'Bulgaria', 'Croatia', 'Slovenia'],
+  turkey:          ['Turkey', 'Azerbaijan', 'Georgia', 'Armenia', 'Kazakhstan', 'Uzbekistan', 'Kyrgyzstan', 'Turkmenistan', 'Tajikistan', 'Iran'],
+  pacific:         ['Japan', 'Australia', 'New Zealand', 'South Korea', 'Philippines', 'Indonesia', 'Malaysia', 'Thailand', 'Vietnam', 'Singapore'],
+  baltic:          ['Lithuania', 'Latvia', 'Estonia', 'Finland', 'Poland', 'Sweden', 'Denmark', 'Russia', 'Belarus', 'Norway'],
+  iberia:          ['Spain', 'Portugal', 'Andorra', 'Gibraltar', 'Morocco', 'Algeria', 'France', 'Italy', 'Malta', 'Tunisia'],
+  alpine:          ['Switzerland', 'Austria', 'Liechtenstein', 'Germany', 'France', 'Italy', 'Slovenia', 'Czech Republic', 'Slovakia', 'Hungary'],
+  canada:          ['Canada', 'USA', 'Greenland', 'Iceland', 'Norway', 'Denmark', 'UK', 'France', 'Netherlands', 'Belgium'],
+  dach:            ['Germany', 'Austria', 'Switzerland', 'Liechtenstein', 'Luxembourg', 'Netherlands', 'Belgium', 'Czech Republic', 'Poland', 'France'],
+  us_west:         ['USA', 'Canada', 'Mexico', 'Hawaii', 'Alaska', 'Japan', 'South Korea', 'Australia', 'New Zealand', 'Philippines'],
+  mexico:          ['Mexico', 'Guatemala', 'Belize', 'Honduras', 'El Salvador', 'Nicaragua', 'Costa Rica', 'Panama', 'Cuba', 'USA'],
+  southeast_asia:  ['Thailand', 'Vietnam', 'Malaysia', 'Singapore', 'Indonesia', 'Philippines', 'Myanmar', 'Cambodia', 'Laos', 'Brunei'],
+  scandinavia:     ['Sweden', 'Norway', 'Denmark', 'Finland', 'Iceland', 'Faroe Islands', 'Estonia', 'Latvia', 'Lithuania', 'Greenland'],
+  australia:       ['Australia', 'New Zealand', 'Fiji', 'Papua New Guinea', 'Solomon Islands', 'Vanuatu', 'Samoa', 'Tonga', 'Kiribati', 'Micronesia'],
+  eastern_europe:  ['Ukraine', 'Romania', 'Bulgaria', 'Serbia', 'Moldova', 'Hungary', 'Slovakia', 'Poland', 'Croatia', 'Bosnia'],
+  france:          ['France', 'Belgium', 'Luxembourg', 'Switzerland', 'Monaco', 'Andorra', 'Italy', 'Spain', 'Germany', 'Netherlands'],
+  us_east:         ['USA', 'Canada', 'UK', 'Ireland', 'France', 'Germany', 'Netherlands', 'Belgium', 'Spain', 'Portugal'],
+  brazil:          ['Brazil', 'Argentina', 'Chile', 'Uruguay', 'Paraguay', 'Bolivia', 'Peru', 'Colombia', 'Venezuela', 'Ecuador'],
+};
+
+const CAMPAIGN_REGION = {
+  1: 'middle_europe', 2: 'east_europe',   3: 'middle_east',  4: 'north_america',
+  5: 'nordic',        6: 'west_europe',   7: 'central_europe', 8: 'turkey',
+  9: 'pacific',       10: 'baltic',       11: 'iberia',      12: 'alpine',
+  13: 'canada',       14: 'dach',         15: 'us_west',     16: 'mexico',
+  17: 'southeast_asia', 18: 'scandinavia', 19: 'australia',  20: 'eastern_europe',
+  21: 'france',       22: 'us_east',      23: 'brazil',
+};
+
+const BRAND_MODELS = {
+  vw:    ['Golf', 'Passat', 'Tiguan', 'Polo', 'T-Roc', 'Touareg', 'Arteon', 'ID.4', 'Caddy', 'Crafter'],
+  volvo: ['XC90', 'XC60', 'XC40', 'V90', 'V60', 'S90', 'S60', 'EX90', 'EX40', 'C40'],
+  skoda: ['Octavia', 'Superb', 'Kodiaq', 'Karoq', 'Fabia', 'Scala', 'Enyaq', 'Kamiq', 'Rapid', 'Citigo'],
+  audi:  ['A3', 'A4', 'A6', 'Q3', 'Q5', 'Q7', 'e-tron', 'A8', 'TT', 'RS6'],
+  ford:  ['Focus', 'Mondeo', 'Puma', 'Kuga', 'Explorer', 'Mustang', 'Transit', 'Ranger', 'Edge', 'EcoSport'],
+  seat:  ['Ibiza', 'Leon', 'Ateca', 'Arona', 'Tarraco', 'Formentor', 'Mii', 'Toledo', 'Alhambra', 'Born'],
+};
+
+function getCampaignFilters(campaign, brandId) {
+  const s = campaign.id;
+  const r = (min, max, salt) => min + ((s * 37 + salt * 13) % (max - min + 1));
+
+  // Countries
+  const regionKey = CAMPAIGN_REGION[s] || 'west_europe';
+  const pool = REGION_COUNTRIES[regionKey];
+  const countryCount = r(2, 14, 3); // matches getCampaignStats countries
+  const countries = [];
+  for (let i = 0; i < Math.min(countryCount, pool.length); i++) {
+    countries.push(pool[(s * 7 + i * 11) % pool.length]);
+  }
+  // dedupe preserving order
+  const seen = new Set();
+  const uniqueCountries = countries.filter(c => seen.has(c) ? false : seen.add(c));
+
+  // Models
+  const key = brandId && BRAND_MODELS[brandId] ? brandId : 'vw';
+  const modelPool = BRAND_MODELS[key];
+  const modelCount = r(2, 9, 2); // matches getCampaignStats models
+  const models = [];
+  for (let i = 0; i < Math.min(modelCount, modelPool.length); i++) {
+    models.push(modelPool[(s * 5 + i * 9) % modelPool.length]);
+  }
+  const seenM = new Set();
+  const uniqueModels = models.filter(m => seenM.has(m) ? false : seenM.add(m));
+
+  // Intervals (4–8)
+  const intervalCount = r(4, 8, 9);
+  const intervals = Array.from({ length: intervalCount }, (_, i) => `Interval ${i + 1}`);
+
+  return { countries: uniqueCountries, models: uniqueModels, intervals };
+}
+
+// ─── Sparse vehicle distribution across (country × model × interval) ──────────
+// Returns array of { country, model, interval, count } — only entries with count > 0.
+// Each (country, model) pair is guaranteed to have at least one interval with vehicles.
+function getCampaignDistribution(campaign, brandId) {
+  const filters = getCampaignFilters(campaign, brandId);
+  const { countries, models, intervals } = filters;
+  const s = campaign.id;
+  const totalVehicles = parseInt(String(campaign.vehicles).replace(/[\s\u00a0,]/g, ''), 10) || 0;
+
+  if (totalVehicles === 0 || !countries.length || !models.length || !intervals.length) return [];
+
+  const records = [];
+  let totalWeight = 0;
+
+  for (let ci = 0; ci < countries.length; ci++) {
+    for (let mi = 0; mi < models.length; mi++) {
+      // Ensure each (country, model) always has at least one interval
+      const guaranteed = (s * 3 + ci * 7 + mi * 11) % intervals.length;
+      for (let ii = 0; ii < intervals.length; ii++) {
+        const hash = (s * 41 + ci * 29 + mi * 19 + ii * 13) % 100;
+        if (hash < 65 || ii === guaranteed) {
+          const weight = 1 + (hash % 8); // 1–8
+          records.push({ country: countries[ci], model: models[mi], interval: intervals[ii], weight });
+          totalWeight += weight;
+        }
+      }
+    }
+  }
+
+  if (totalWeight === 0) return [];
+
+  // Distribute vehicles with largest-remainder so counts sum to exactly totalVehicles
+  const exacts = records.map(r => totalVehicles * r.weight / totalWeight);
+  const floors = exacts.map(e => Math.floor(e));
+  const floorSum = floors.reduce((a, b) => a + b, 0);
+  const remainder = totalVehicles - floorSum;
+  const byFrac = exacts.map((e, i) => ({ i, frac: e % 1 })).sort((a, b) => b.frac - a.frac);
+  const counts = [...floors];
+  for (let k = 0; k < remainder; k++) counts[byFrac[k].i]++;
+
+  return records.map((r, i) => ({ ...r, count: counts[i] })).filter(r => r.count > 0);
+}
+
+// ─── Filter dropdown ──────────────────────────────────────────────────────────
+function FilterDropdown({ allLabel, options, value, onChange, triggerWidth }) {
+  const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const label = value ?? allLabel;
+  const isFiltered = value !== null;
+
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '5px 12px', borderRadius: 8,
-        background: hovered ? 'rgba(0,70,102,0.3)' : 'rgba(1,45,66,0.55)',
-        border: hovered ? '1px solid #28779c' : '1px solid #153f53',
-        cursor: 'pointer', transition: 'all 0.15s',
-      }}
-    >
-      <span style={{ fontSize: 11, fontWeight: 500, color: '#ccdfe9', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(128,176,200,0.5)" strokeWidth="2" strokeLinecap="round">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '5px 12px', borderRadius: 8,
+          width: triggerWidth,
+          background: open ? 'rgba(0,70,102,0.4)' : hovered ? 'rgba(0,70,102,0.3)' : isFiltered ? 'rgba(0,70,102,0.28)' : 'rgba(1,45,66,0.55)',
+          border: open || hovered ? '1px solid #28779c' : isFiltered ? '1px solid rgba(40,119,156,0.6)' : '1px solid #153f53',
+          cursor: 'pointer', transition: 'all 0.15s', userSelect: 'none', boxSizing: 'border-box',
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 500, color: isFiltered ? '#ffffff' : '#ccdfe9', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {label}
+        </span>
+        <svg
+          width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="rgba(128,176,200,0.5)" strokeWidth="2" strokeLinecap="round"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0,
+          background: '#012d42', border: '1px solid #153f53',
+          borderRadius: 8, boxShadow: '0px 8px 12px 0px rgba(0,0,0,0.28)',
+          overflow: 'hidden', zIndex: 300, minWidth: '100%',
+        }}>
+          {[null, ...options].map((opt, i) => {
+            const isSelected = opt === value;
+            const displayLabel = opt ?? allLabel;
+            return (
+              <div
+                key={displayLabel}
+                onClick={() => { onChange(opt); setOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center',
+                  padding: '10px 12px', cursor: 'pointer',
+                  borderBottom: i < options.length ? '1px solid #153f53' : 'none',
+                  background: 'transparent', transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,70,102,0.3)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <span style={{
+                  fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap',
+                  color: isSelected ? '#ffffff' : '#80b0c8',
+                  fontFamily: "'Inter', sans-serif",
+                }}>
+                  {displayLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -140,6 +349,23 @@ const VEHICLE_SEGMENTS = [
   { color: '#8060c8', label: 'POSTPONED',    pct: 7  },
 ];
 
+// Distribute `total` vehicles across segments using largest-remainder method
+// so counts always sum to exactly total, with no segment below 0.
+function distributeVehicles(total, segments) {
+  if (total === 0) return segments.map(() => 0);
+  const items = segments.map((s, i) => {
+    const exact = total * s.pct / 100;
+    return { i, floor: Math.floor(exact), frac: exact % 1 };
+  });
+  const floorSum = items.reduce((a, b) => a + b.floor, 0);
+  const remainder = total - floorSum;
+  const sorted = [...items].sort((a, b) => b.frac - a.frac);
+  const counts = new Array(segments.length).fill(0);
+  items.forEach(x => { counts[x.i] = x.floor; });
+  for (let k = 0; k < remainder; k++) counts[sorted[k].i]++;
+  return counts;
+}
+
 // Sub-segment detail data per main segment
 const SUB_SEGMENTS = [
   [{ label: 'Downloading',  pct: 42, color: '#e03070' }, { label: 'Verifying',   pct: 33, color: '#c02858' }, { label: 'Pending',     pct: 25, color: '#801840' }],
@@ -150,10 +376,11 @@ const SUB_SEGMENTS = [
   [{ label: 'Scheduled',    pct: 48, color: '#8060c8' }, { label: 'Queued',      pct: 52, color: '#604098' }],
 ];
 
-function ShowVinsButton() {
+function ShowVinsButton({ onClick }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -169,6 +396,379 @@ function ShowVinsButton() {
     >
       SHOW VINS
     </button>
+  );
+}
+
+// ─── Deterministic VIN generator ─────────────────────────────────────────────
+const VIN_CHARS = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789'; // VIN-valid (no I/O/Q)
+function generateVin(campaignId, idx) {
+  let h = (campaignId * 7919 + idx * 6271 + 1) | 0;
+  let vin = '';
+  for (let i = 0; i < 17; i++) {
+    h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) ^ (h >>> 15);
+    vin += VIN_CHARS[Math.abs(h) % VIN_CHARS.length];
+  }
+  return vin;
+}
+
+// ─── Copy toast ───────────────────────────────────────────────────────────────
+function CopyToast({ vin, onDone }) {
+  const [hiding, setHiding] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setHiding(true), 3000);
+    const t2 = setTimeout(() => onDone(), 3400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return (
+    <div
+      onAnimationEnd={() => { if (hiding) onDone(); }}
+      style={{
+        position: 'fixed', top: 20, right: 20, zIndex: 999,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 16px', borderRadius: 12,
+        background: 'rgba(10,40,18,0.92)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(40,140,80,0.45)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.32), 0 0 0 1px rgba(40,140,80,0.12)',
+        animation: hiding ? 'toastSlideOut 0.32s ease forwards' : 'toastSlideIn 0.28s ease forwards',
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+        background: 'rgba(40,140,80,0.25)', border: '1px solid rgba(56,176,96,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4cd87a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#4cd87a', fontFamily: "'Inter', sans-serif", letterSpacing: 0.3 }}>
+          Copied to clipboard
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(56,176,96,0.75)', fontFamily: "'Inter', sans-serif", marginTop: 2 }}>
+          VIN {vin} copied successfully.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── VIN search (matches dashboard search style) ─────────────────────────────
+function VinSearch({ search, onChange, inputRef }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 8,
+        height: 36, padding: '0 12px', borderRadius: 8,
+        background: hovered ? 'rgba(0,70,102,0.28)' : 'rgba(0,70,102,0.16)',
+        border: hovered ? '1px solid #28779c' : '1px solid #16506c',
+        transition: 'background 0.15s, border-color 0.15s',
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(128,176,200,0.45)" strokeWidth="2" strokeLinecap="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        ref={inputRef}
+        value={search}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Search VIN..."
+        style={{
+          flex: 1, background: 'transparent', border: 'none', outline: 'none',
+          fontSize: 12, fontWeight: 500, color: '#ffffff',
+          fontFamily: "'Inter', sans-serif", caretColor: '#ffffff',
+        }}
+        className="dashboard-search"
+      />
+      {search && (
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => onChange('')}
+            style={{
+              background: 'none', border: 'none', padding: '2px 2px 0',
+              cursor: 'pointer', color: 'rgba(128,176,200,0.5)',
+              display: 'flex', alignItems: 'center', lineHeight: 1,
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'rgba(128,176,200,1)';
+              e.currentTarget.parentNode.querySelector('.vin-clear-tip').style.opacity = '1';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'rgba(128,176,200,0.5)';
+              e.currentTarget.parentNode.querySelector('.vin-clear-tip').style.opacity = '0';
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <div className="vin-clear-tip" style={{
+            position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '3px 7px', borderRadius: 4,
+            background: '#012d42', border: '1px solid #153f53',
+            fontSize: 10, fontWeight: 600, color: '#80b0c8',
+            fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
+            pointerEvents: 'none', opacity: 0, transition: 'opacity 0.15s',
+            zIndex: 10,
+          }}>
+            Clear
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── VINs modal ───────────────────────────────────────────────────────────────
+const VIN_CAP = 2000;
+const VIN_COLUMNS = [
+  { key: 'vin',       label: 'VIN' },
+  { key: 'productId', label: 'PRODUCT ID' },
+  { key: 'country',   label: 'COUNTRY' },
+  { key: 'interval',  label: 'INTERVAL' },
+];
+
+function VinsModal({ campaign, dist, selectedCountry, effectiveModel, effectiveInterval, onClose, onCopy }) {
+  const [closing, setClosing] = useState(false);
+  const [closeHovered, setCloseHovered] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState({ key: 'vin', dir: 'asc' });
+  const [hoveredCol, setHoveredCol] = useState(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => { searchRef.current?.focus(); }, []);
+
+  function handleColSort(key) {
+    setSort(prev => prev.key === key
+      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: 'asc' }
+    );
+  }
+
+  function handleClose() { setClosing(true); }
+
+  const filteredDist = dist.filter(r =>
+    (selectedCountry   === null || r.country  === selectedCountry) &&
+    (effectiveModel    === null || r.model    === effectiveModel) &&
+    (effectiveInterval === null || r.interval === effectiveInterval)
+  );
+
+  // Build VIN list (capped at VIN_CAP for performance)
+  const totalCount = filteredDist.reduce((s, r) => s + r.count, 0);
+  const vinList = [];
+  let globalIdx = 0;
+  outer: for (const rec of filteredDist) {
+    for (let v = 0; v < rec.count; v++) {
+      if (globalIdx >= VIN_CAP) break outer;
+      vinList.push({ vin: generateVin(campaign.id, globalIdx), productId: rec.model, country: rec.country, interval: rec.interval });
+      globalIdx++;
+    }
+  }
+
+  const q = search.trim().toLowerCase();
+  const filtered = q ? vinList.filter(v => v.vin.toLowerCase().includes(q)) : vinList;
+  const displayed = [...filtered].sort((a, b) => {
+    const va = a[sort.key] ?? '';
+    const vb = b[sort.key] ?? '';
+    const cmp = va.localeCompare(vb, undefined, { numeric: true });
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  return (
+    <>
+      <div
+        onClick={handleClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,46,67,0.75)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          animation: closing ? 'backdropFadeOut 0.18s ease forwards' : 'backdropFadeIn 0.22s ease',
+        }}
+      />
+      <div
+        onAnimationEnd={() => { if (closing) onClose(); }}
+        style={{
+          position: 'fixed', top: '50%', left: '50%',
+          width: 680, height: '82vh', maxHeight: '82vh',
+          background: 'rgba(1,45,66,0.82)',
+          backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+          border: '1px solid #153f53', borderRadius: 24, padding: 24,
+          display: 'flex', flexDirection: 'column', gap: 16,
+          boxShadow: '0px 0px 32px 0px rgba(0,0,0,0.28)',
+          zIndex: 201, boxSizing: 'border-box',
+          animation: closing ? 'modalFadeOut 0.18s ease forwards' : 'modalFadeIn 0.22s ease forwards',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 20, fontWeight: 600, color: '#ffffff', fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.4 }}>
+              Vehicle VINs
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(128,176,200,0.5)', fontFamily: "'Inter', sans-serif" }}>
+              {totalCount > VIN_CAP
+                ? `showing ${VIN_CAP.toLocaleString()} of ${totalCount.toLocaleString()}`
+                : `${totalCount.toLocaleString()} vehicle${totalCount !== 1 ? 's' : ''}`}
+            </span>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={handleClose}
+              onMouseEnter={() => setCloseHovered(true)}
+              onMouseLeave={() => setCloseHovered(false)}
+              style={{
+                width: 24, height: 24, background: 'none', border: 'none', padding: 0,
+                cursor: 'pointer',
+                color: closeHovered ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            {closeHovered && (
+              <div style={{
+                position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+                transform: 'translateX(-50%)',
+                padding: '3px 8px', borderRadius: 4,
+                background: '#012d42', border: '1px solid #153f53',
+                fontSize: 10, fontWeight: 600, color: '#80b0c8',
+                fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
+                pointerEvents: 'none', zIndex: 210,
+              }}>
+                Close
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Search */}
+        <VinSearch search={search} onChange={setSearch} inputRef={searchRef} />
+
+        {/* Table header */}
+        <div style={{
+          flexShrink: 0,
+          display: 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.2fr 1fr',
+          padding: '10px 12px',
+          background: 'rgb(1,41,64)',
+          borderRadius: 10,
+          scrollbarGutter: 'stable',
+        }}>
+          {VIN_COLUMNS.map(col => {
+            const isActive = sort.key === col.key;
+            const isHov = hoveredCol === col.key;
+            return (
+              <div
+                key={col.key}
+                onClick={() => handleColSort(col.key)}
+                onMouseEnter={() => setHoveredCol(col.key)}
+                onMouseLeave={() => setHoveredCol(null)}
+                style={{
+                  display: 'flex', alignItems: 'center',
+                  fontSize: 9, fontWeight: 700, letterSpacing: 1,
+                  fontFamily: "'Inter', sans-serif",
+                  color: isActive ? 'rgba(128,176,200,0.95)' : isHov ? 'rgba(128,176,200,0.8)' : 'rgba(128,176,200,0.6)',
+                  cursor: 'pointer', userSelect: 'none',
+                  transition: 'color 0.15s',
+                }}
+              >
+                {col.label}
+                {(isActive || isHov) && (
+                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 1, marginLeft: 4, opacity: isActive ? 0.9 : 0.35 }}>
+                    <svg width="7" height="5" viewBox="0 0 7 5" fill="currentColor" style={{ opacity: isActive && sort.dir === 'asc' ? 0 : 1 }}>
+                      <path d="M3.5 0L7 5H0L3.5 0Z"/>
+                    </svg>
+                    <svg width="7" height="5" viewBox="0 0 7 5" fill="currentColor" style={{ opacity: isActive && sort.dir === 'desc' ? 0 : 1 }}>
+                      <path d="M3.5 5L0 0H7L3.5 5Z"/>
+                    </svg>
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Scrollable list */}
+        <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, scrollbarGutter: 'stable' }}>
+          {displayed.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, height: '100%' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(128,176,200,0.25)" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(128,176,200,0.4)', fontFamily: "'Inter', sans-serif" }}>No VINs match your search</span>
+            </div>
+          ) : (
+            displayed.map((item, i) => <VinRow key={item.vin} item={item} i={i} onCopy={onCopy} />)
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function VinRow({ item, i, onCopy }) {
+  const [hovered, setHovered] = useState(false);
+  const [copyHovered, setCopyHovered] = useState(false);
+
+  function handleCopy() {
+    try { navigator.clipboard.writeText(item.vin); } catch (_) {}
+    onCopy(item.vin);
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setCopyHovered(false); }}
+      style={{
+        display: 'grid', gridTemplateColumns: '2.2fr 1.2fr 1.2fr 1fr',
+        alignItems: 'center',
+        padding: '9px 12px', borderRadius: 8,
+        background: hovered ? 'rgba(0,70,102,0.22)' : i % 2 === 0 ? 'transparent' : 'rgba(0,40,60,0.18)',
+        transition: 'background 0.12s',
+        position: 'relative',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#ccdfe9', fontFamily: "'Inter', sans-serif", letterSpacing: 0.3, fontVariantNumeric: 'tabular-nums' }}>
+          {item.vin}
+        </span>
+        <button
+          onClick={handleCopy}
+          onMouseEnter={() => setCopyHovered(true)}
+          onMouseLeave={() => setCopyHovered(false)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '3px 8px', borderRadius: 5, border: 'none',
+            background: copyHovered ? 'rgba(40,140,80,0.28)' : 'rgba(40,140,80,0.15)',
+            color: copyHovered ? '#4cd87a' : 'rgba(56,176,96,0.8)',
+            fontSize: 9, fontWeight: 700, fontFamily: "'Inter', sans-serif", letterSpacing: 0.6,
+            cursor: 'pointer', transition: 'all 0.12s',
+            opacity: hovered ? 1 : 0,
+            pointerEvents: hovered ? 'auto' : 'none',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          COPY
+        </button>
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(128,176,200,0.8)', fontFamily: "'Inter', sans-serif" }}>{item.productId}</span>
+      <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(128,176,200,0.8)', fontFamily: "'Inter', sans-serif" }}>{item.country}</span>
+      <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(128,176,200,0.8)', fontFamily: "'Inter', sans-serif" }}>{item.interval}</span>
+    </div>
   );
 }
 
@@ -209,35 +809,46 @@ function CloseDetailBtn({ onClick }) {
   );
 }
 
-function VehicleBar({ totalVehicles, disabled }) {
+function VehicleBar({ totalVehicles, disabled, onShowVins }) {
   const [hoveredSeg, setHoveredSeg] = useState(null);
   const [selectedSeg, setSelectedSeg] = useState(null);
   const [closingDetail, setClosingDetail] = useState(false);
-  const total = parseInt(String(totalVehicles).replace(/\s/g, ''), 10) || 0;
+  const total = typeof totalVehicles === 'number'
+    ? totalVehicles
+    : parseInt(String(totalVehicles).replace(/[\s\u00a0,]/g, ''), 10) || 0;
 
-  function handleSegClick(i) {
-    if (selectedSeg === i) {
+  // Close detail when total changes (filter change)
+  useEffect(() => {
+    setSelectedSeg(null);
+    setClosingDetail(false);
+    setHoveredSeg(null);
+  }, [total]);
+
+  function handleSegClick(segIdx) {
+    if (selectedSeg === segIdx) {
       handleCloseDetail();
     } else {
       setClosingDetail(false);
-      setSelectedSeg(i);
+      setSelectedSeg(segIdx);
     }
   }
 
-  function handleCloseDetail() {
-    setClosingDetail(true);
-  }
+  function handleCloseDetail() { setClosingDetail(true); }
 
   function handleDetailAnimEnd() {
-    if (closingDetail) {
-      setSelectedSeg(null);
-      setClosingDetail(false);
-    }
+    if (closingDetail) { setSelectedSeg(null); setClosingDetail(false); }
   }
+
+  // Compute exact vehicle counts per segment (always sums to total)
+  const counts = distributeVehicles(total, VEHICLE_SEGMENTS);
+  // Only render segments that have at least 1 vehicle, preserving original index for sub-segment data
+  const visibleSegs = VEHICLE_SEGMENTS
+    .map((seg, i) => ({ ...seg, origIdx: i, count: counts[i] }))
+    .filter(s => s.count > 0);
 
   const activeSeg = selectedSeg !== null ? VEHICLE_SEGMENTS[selectedSeg] : null;
   const subSegs = selectedSeg !== null ? SUB_SEGMENTS[selectedSeg] : [];
-  const segCount = activeSeg ? Math.round(total * activeSeg.pct / 100) : 0;
+  const segCount = activeSeg ? counts[selectedSeg] : 0;
 
   if (disabled) {
     return (
@@ -250,31 +861,52 @@ function VehicleBar({ totalVehicles, disabled }) {
     );
   }
 
+  if (total === 0) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 8, padding: '20px 0',
+        animation: 'barEnter 0.55s cubic-bezier(0.22,1,0.36,1) both',
+      }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(128,176,200,0.25)" strokeWidth="1.5" strokeLinecap="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(128,176,200,0.4)', fontFamily: "'Inter', sans-serif" }}>
+          No vehicles match the selected criteria
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 400, color: 'rgba(128,176,200,0.25)', fontFamily: "'Inter', sans-serif" }}>
+          Try adjusting your filters
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Segmented bar */}
+      {/* Segmented bar — only segments with ≥1 vehicle */}
       <div style={{ display: 'flex', height: 28, borderRadius: 6, overflow: 'visible', gap: 2, animation: 'barEnter 0.55s cubic-bezier(0.22,1,0.36,1) both' }}>
-        {VEHICLE_SEGMENTS.map((seg, i) => {
-          const count = Math.round(total * seg.pct / 100);
-          const isHovered = hoveredSeg === i;
+        {visibleSegs.map((seg, j) => {
+          const isHovered = hoveredSeg === seg.origIdx;
           const activeHighlight = hoveredSeg !== null ? hoveredSeg : selectedSeg;
-          const isDimmed = activeHighlight !== null && activeHighlight !== i;
-          const isFirst = i === 0;
-          const isLast = i === VEHICLE_SEGMENTS.length - 1;
+          const isDimmed = activeHighlight !== null && activeHighlight !== seg.origIdx;
+          const isFirst = j === 0;
+          const isLast = j === visibleSegs.length - 1;
+          const pct = Math.round(seg.count / total * 100);
           return (
             <div
-              key={i}
-              onMouseEnter={() => setHoveredSeg(i)}
+              key={seg.origIdx}
+              onMouseEnter={() => setHoveredSeg(seg.origIdx)}
               onMouseLeave={() => setHoveredSeg(null)}
-              onClick={() => handleSegClick(i)}
+              onClick={() => handleSegClick(seg.origIdx)}
               style={{
-                flex: seg.pct,
+                flex: seg.count,
                 background: seg.color,
-                borderRadius: isFirst ? '6px 0 0 6px' : isLast ? '0 6px 6px 0' : 0,
+                borderRadius: isFirst && isLast ? 6 : isFirst ? '6px 0 0 6px' : isLast ? '0 6px 6px 0' : 0,
                 opacity: isDimmed ? 0.22 : 1,
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'opacity 0.2s ease, transform 0.2s ease',
+                transition: 'flex 0.45s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease, transform 0.2s ease',
                 transform: isHovered ? 'scaleY(1.12)' : 'scaleY(1)',
                 transformOrigin: 'center',
               }}
@@ -296,12 +928,11 @@ function VehicleBar({ totalVehicles, disabled }) {
                   animation: 'tooltipFadeIn 0.15s ease',
                 }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif", lineHeight: 1.1 }}>
-                    {seg.pct}%
+                    {pct}%
                   </div>
                   <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", marginTop: 2 }}>
-                    {count.toLocaleString()} Vehicles
+                    {seg.count.toLocaleString()} Vehicles
                   </div>
-                  {/* Arrow */}
                   <div style={{
                     position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
                     width: 0, height: 0,
@@ -333,7 +964,6 @@ function VehicleBar({ totalVehicles, disabled }) {
               : 'detailSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both',
           }}
         >
-          {/* Detail header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
               <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif", lineHeight: 1 }}>
@@ -344,30 +974,20 @@ function VehicleBar({ totalVehicles, disabled }) {
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ShowVinsButton />
+              <ShowVinsButton onClick={onShowVins} />
               <CloseDetailBtn onClick={handleCloseDetail} />
             </div>
           </div>
 
-          {/* Sub-segment bar */}
           <div style={{ display: 'flex', height: 22, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
-            {subSegs.map((sub, j) => {
-              const isFirst = j === 0;
-              const isLast = j === subSegs.length - 1;
-              return (
-                <div
-                  key={j}
-                  style={{
-                    flex: sub.pct,
-                    background: sub.color,
-                    borderRadius: isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0,
-                  }}
-                />
-              );
-            })}
+            {subSegs.map((sub, j) => (
+              <div key={j} style={{
+                flex: sub.pct, background: sub.color,
+                borderRadius: j === 0 ? '4px 0 0 4px' : j === subSegs.length - 1 ? '0 4px 4px 0' : 0,
+              }} />
+            ))}
           </div>
 
-          {/* Sub-segment legend */}
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             {subSegs.map((sub, j) => (
               <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -384,22 +1004,22 @@ function VehicleBar({ totalVehicles, disabled }) {
         </div>
       )}
 
-      {/* Legend */}
+      {/* Legend — only segments with ≥1 vehicle */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {VEHICLE_SEGMENTS.map((seg, i) => (
+        {visibleSegs.map(seg => (
           <div
-            key={i}
-            onMouseEnter={() => setHoveredSeg(i)}
+            key={seg.origIdx}
+            onMouseEnter={() => setHoveredSeg(seg.origIdx)}
             onMouseLeave={() => setHoveredSeg(null)}
-            onClick={() => handleSegClick(i)}
+            onClick={() => handleSegClick(seg.origIdx)}
             style={{
               display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
-              opacity: (hoveredSeg !== null ? hoveredSeg : selectedSeg) !== null && (hoveredSeg !== null ? hoveredSeg : selectedSeg) !== i ? 0.35 : 1,
+              opacity: (hoveredSeg !== null ? hoveredSeg : selectedSeg) !== null && (hoveredSeg !== null ? hoveredSeg : selectedSeg) !== seg.origIdx ? 0.35 : 1,
               transition: 'opacity 0.2s ease',
             }}
           >
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 9, fontWeight: 600, color: hoveredSeg === i || selectedSeg === i ? seg.color : 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.5, transition: 'color 0.2s ease' }}>
+            <span style={{ fontSize: 9, fontWeight: 600, color: hoveredSeg === seg.origIdx || selectedSeg === seg.origIdx ? seg.color : 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.5, transition: 'color 0.2s ease' }}>
               {seg.label}
             </span>
           </div>
@@ -978,12 +1598,6 @@ function AbortModal({ onClose }) {
   );
 }
 
-const LOAD_STEPS_BACK = [
-  'Syncing campaign updates',
-  'Refreshing campaign list',
-  'Loading dashboard',
-];
-
 const LOAD_STEPS_REFRESH = [
   'Fetching campaign data',
   'Loading vehicle statistics',
@@ -1031,25 +1645,72 @@ function BackButton({ onClick }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function CampaignDetailView({ campaign, onBack }) {
+export default function CampaignDetailView({ campaign, onBack, activeBrand, onBrandChange, onLogout }) {
   const [activeNav, setActiveNav] = useState('aftersales');
   const [activeTab, setActiveTab] = useState('OVERVIEW');
   const [configureOpen, setConfigureOpen] = useState(false);
   const [abortOpen, setAbortOpen] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
-  const [loadingBack, setLoadingBack] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loaderVisible, setLoaderVisible] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [selectedModel, setSelectedModel] = useState(null);
+  const [selectedInterval, setSelectedInterval] = useState(null);
+  const [vinsOpen, setVinsOpen] = useState(false);
+  const [copyToast, setCopyToast] = useState(null); // vin string or null
+
+  const brandId = activeBrand?.id ?? 'vw';
+  const campaignFilters = getCampaignFilters(campaign, brandId);
+  const dist = getCampaignDistribution(campaign, brandId);
+
+  useEffect(() => { setSelectedCountry(null); setSelectedModel(null); setSelectedInterval(null); }, [campaign.id]);
+  useEffect(() => { setSelectedModel(null); setSelectedInterval(null); }, [brandId]);
+
+  // ── Cascading available options derived from the distribution ────────────────
+  const availableModels = selectedCountry !== null
+    ? [...new Set(dist.filter(r => r.country === selectedCountry).map(r => r.model))]
+    : campaignFilters.models;
+
+  // Effective model: null if current selection is no longer in available list
+  const effectiveModel = selectedModel !== null && availableModels.includes(selectedModel) ? selectedModel : null;
+
+  const availableIntervals = (selectedCountry !== null || effectiveModel !== null)
+    ? [...new Set(
+        dist.filter(r =>
+          (selectedCountry === null || r.country === selectedCountry) &&
+          (effectiveModel === null  || r.model   === effectiveModel)
+        ).map(r => r.interval)
+      )]
+    : campaignFilters.intervals;
+
+  const effectiveInterval = selectedInterval !== null && availableIntervals.includes(selectedInterval) ? selectedInterval : null;
+
+  // Sync state for stale selections (async, avoids UI flash via effective* above)
+  useEffect(() => { if (effectiveModel    !== selectedModel)    setSelectedModel(effectiveModel); },    [effectiveModel,    selectedModel]);
+  useEffect(() => { if (effectiveInterval !== selectedInterval) setSelectedInterval(effectiveInterval); }, [effectiveInterval, selectedInterval]);
+
+  // ── Filtered vehicle count from distribution ─────────────────────────────────
+  const totalVehiclesRaw = parseInt(String(campaign.vehicles).replace(/[\s\u00a0,]/g, ''), 10) || 0;
+  const filtVehiclesNum = dist
+    .filter(r =>
+      (selectedCountry   === null || r.country  === selectedCountry) &&
+      (effectiveModel    === null || r.model    === effectiveModel) &&
+      (effectiveInterval === null || r.interval === effectiveInterval)
+    )
+    .reduce((sum, r) => sum + r.count, 0) || (totalVehiclesRaw > 0 && !selectedCountry && !effectiveModel && !effectiveInterval ? totalVehiclesRaw : 0);
+
+  const hasFilter = selectedCountry !== null || effectiveModel !== null || effectiveInterval !== null;
+  const filterScale = totalVehiclesRaw > 0 ? filtVehiclesNum / totalVehiclesRaw : 0;
+  // Small deterministic variance per filter combo (keeps rates plausible per-slice)
+  const cIdx = selectedCountry ? campaignFilters.countries.indexOf(selectedCountry) : -1;
+  const mIdx = effectiveModel  ? campaignFilters.models.indexOf(effectiveModel)     : -1;
+  const iIdx = effectiveInterval ? campaignFilters.intervals.indexOf(effectiveInterval) : -1;
+  const fSeed = (cIdx >= 0 ? cIdx * 7 : 0) + (mIdx >= 0 ? mIdx * 13 : 0) + (iIdx >= 0 ? iIdx * 5 : 0);
+  const rv = (fSeed % 11) - 5; // −5 … +5
 
   function handleBack() {
-    setLoadingBack(true);
-    setLoadStep(0);
-    requestAnimationFrame(() => requestAnimationFrame(() => setLoaderVisible(true)));
-    setTimeout(() => setLoadStep(1), 450);
-    setTimeout(() => setLoadStep(2), 900);
-    setTimeout(() => setLoaderVisible(false), 1300);
-    setTimeout(() => onBack(), 1600);
+    onBack();
   }
 
   function handleRefresh() {
@@ -1107,60 +1768,39 @@ export default function CampaignDetailView({ campaign, onBack }) {
     );
   }
 
-  if (loadingBack) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: '100vw', height: '100vh',
-        background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)',
-        backgroundColor: '#003050',
-      }}>
-        <div style={{
-          opacity: loaderVisible ? 1 : 0, transition: 'opacity 0.3s ease',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28,
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.5 }}>
-              Returning to dashboard
-            </div>
-          </div>
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            border: '2px solid rgba(128,176,200,0.15)', borderTopColor: '#28a0c8',
-            animation: 'iteruSpin 0.85s linear infinite',
-          }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {LOAD_STEPS_BACK.map((s, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                fontSize: 11, fontFamily: "'Inter', sans-serif", fontWeight: 500, letterSpacing: 0.2,
-                color: i < loadStep ? 'rgba(56,176,96,0.85)' : i === loadStep ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.2)',
-                transition: 'color 0.3s ease',
-              }}>
-                <span style={{ width: 14, display: 'flex', justifyContent: 'center', fontSize: i < loadStep ? 11 : 13 }}>
-                  {i < loadStep ? '✓' : i === loadStep ? '›' : '·'}
-                </span>
-                {s}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const status = campaign.statuses[0];
   const isCreated = status === 'CREATED';
+  const isActive = status === 'RUNNING' || status === 'CALCULATED';
   const stats = getCampaignStats(campaign);
 
+  // ── Filtered stats ───────────────────────────────────────────────────────────
+  const animVehicles = useCountUp(filtVehiclesNum);
+  const filtVehiclesStr = animVehicles.toLocaleString('en-US').replace(/,/g, '\u00a0');
+  const filtSuccessRate = hasFilter ? Math.min(98, Math.max(70, stats.successRate + rv)) : stats.successRate;
+  const filtFailureRate = hasFilter ? 100 - filtSuccessRate : stats.failureRate;
+  const filtLaunchRate  = hasFilter ? Math.min(100, Math.max(78, stats.launchRate + ((fSeed % 7) - 3))) : stats.launchRate;
+  const filtDailyCars   = hasFilter ? Math.max(1, Math.round(stats.dailyCars * filterScale)) : stats.dailyCars;
+  // Models/countries counts reflect cascading selections
+  const filtModels = effectiveModel !== null
+    ? 1
+    : selectedCountry !== null
+      ? availableModels.length
+      : stats.models;
+  const filtCountries = selectedCountry !== null
+    ? 1
+    : effectiveModel !== null
+      ? [...new Set(dist.filter(r => r.model === effectiveModel).map(r => r.country))].length
+      : stats.countries;
+
   return (
+    <>
     <div style={{
       display: 'flex', height: '100vh', width: '100vw',
       background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)',
       backgroundColor: '#003050',
       padding: 24, gap: 24, boxSizing: 'border-box', overflow: 'hidden',
     }}>
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} attentionCount={2} />
+      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} attentionCount={2} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />
 
       {/* Main area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, position: 'relative' }}>
@@ -1205,9 +1845,27 @@ export default function CampaignDetailView({ campaign, onBack }) {
 
         {/* ── Filter bar ── */}
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <FilterDropdown label="All Countries" />
-          <FilterDropdown label="All Product IDs" />
-          <FilterDropdown label="All Intervals" />
+          <FilterDropdown
+            allLabel="All Countries"
+            options={campaignFilters.countries}
+            value={selectedCountry}
+            onChange={setSelectedCountry}
+            triggerWidth={168}
+          />
+          <FilterDropdown
+            allLabel="All Product IDs"
+            options={availableModels}
+            value={effectiveModel}
+            onChange={setSelectedModel}
+            triggerWidth={144}
+          />
+          <FilterDropdown
+            allLabel="All Intervals"
+            options={availableIntervals}
+            value={effectiveInterval}
+            onChange={setSelectedInterval}
+            triggerWidth={126}
+          />
         </div>
 
         {/* ── Stats ── */}
@@ -1218,8 +1876,8 @@ export default function CampaignDetailView({ campaign, onBack }) {
               ? <StatCard value={`-${stats.days}`} unit="days" label={`To start (${stats.startDate})`} />
               : <StatCard value={stats.days} unit="days" label={`Since start (${stats.startDate})`} />
             }
-            <StatCard value={stats.models} label="Models" />
-            <StatCard value={stats.countries} label="Countries" />
+            <StatCard value={filtModels} label="Models" />
+            <StatCard value={filtCountries} label="Countries" />
             <StatCard
               value={isCreated ? '–' : stats.updateSpeed}
               unit={isCreated ? undefined : 'sec'}
@@ -1233,7 +1891,7 @@ export default function CampaignDetailView({ campaign, onBack }) {
               label="Average download speed"
             />
             <StatCard
-              value={isCreated ? '–' : stats.dailyCars}
+              value={isCreated ? '–' : filtDailyCars}
               unit={isCreated ? undefined : 'cars'}
               trend={isCreated ? undefined : stats.carsTrend}
               label="Updated vehicles each day"
@@ -1243,27 +1901,27 @@ export default function CampaignDetailView({ campaign, onBack }) {
           {/* Row 2: 3 progress cards */}
           <div style={{ display: 'flex', gap: 10 }}>
             <ProgressCard
-              value={isCreated ? '–' : `${stats.launchRate}%`}
-              trend={isCreated ? undefined : (stats.launchRate === 100 ? 'neutral' : 'down')}
+              value={isCreated ? '–' : `${filtLaunchRate}%`}
+              trend={isCreated ? undefined : (filtLaunchRate === 100 ? 'neutral' : 'down')}
               label="Launch rate"
               barColor="linear-gradient(90deg, #28779c 0%, #28a0c8 100%)"
-              barWidth={`${stats.launchRate}%`}
+              barWidth={`${filtLaunchRate}%`}
               empty={isCreated}
             />
             <ProgressCard
-              value={isCreated ? '–' : `${stats.successRate}%`}
-              trend={isCreated ? undefined : stats.successTrend}
+              value={isCreated ? '–' : `${filtSuccessRate}%`}
+              trend={isCreated ? undefined : (filtSuccessRate > 88 ? 'up' : 'down')}
               label="Success rate"
               barColor="linear-gradient(90deg, #28779c 0%, #28a0c8 100%)"
-              barWidth={`${stats.successRate}%`}
+              barWidth={`${filtSuccessRate}%`}
               empty={isCreated}
             />
             <ProgressCard
-              value={isCreated ? '–' : `${stats.failureRate}%`}
-              trend={isCreated ? undefined : stats.failTrend}
+              value={isCreated ? '–' : `${filtFailureRate}%`}
+              trend={isCreated ? undefined : (filtFailureRate > 12 ? 'up' : 'down')}
               label="Failure rate"
               barColor="linear-gradient(90deg, #8b2020 0%, #cc3333 100%)"
-              barWidth={`${stats.failureRate}%`}
+              barWidth={`${filtFailureRate}%`}
               empty={isCreated}
             />
           </div>
@@ -1279,13 +1937,13 @@ export default function CampaignDetailView({ campaign, onBack }) {
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <span style={{ fontSize: 26, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif" }}>{campaign.vehicles}</span>
+              <span style={{ fontSize: 26, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif" }}>{filtVehiclesStr}</span>
               <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(128,176,200,0.5)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', marginTop: 2 }}>Vehicles</div>
             </div>
-            <ShowVinsButton />
+            <ShowVinsButton onClick={() => setVinsOpen(true)} />
           </div>
 
-          <VehicleBar totalVehicles={campaign.vehicles} disabled={isCreated} />
+          <VehicleBar totalVehicles={filtVehiclesNum} disabled={isCreated} onShowVins={() => setVinsOpen(true)} />
         </div>
 
         {/* ── Bottom action bar (floating) ── */}
@@ -1305,40 +1963,54 @@ export default function CampaignDetailView({ campaign, onBack }) {
           <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', margin: '0 2px' }} />
 
           {/* Icon buttons */}
-          <IconBtn tooltip="Configure" onClick={() => setConfigureOpen(true)}>
+          <IconBtn tooltip="Campaign Parameters" onClick={() => setConfigureOpen(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </IconBtn>
-          <IconBtn tooltip="Refresh" onClick={handleRefresh}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-          </IconBtn>
-          {isCreated
-            ? (
-              <IconBtn tooltip="Approve campaign" approve onClick={() => setApproveOpen(true)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </IconBtn>
-            ) : (
-              <IconBtn tooltip="Abort campaign" danger onClick={() => setAbortOpen(true)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </IconBtn>
-            )
-          }
+          {isActive && (
+            <IconBtn tooltip="Refresh" onClick={handleRefresh}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </IconBtn>
+          )}
+          {isCreated && (
+            <IconBtn tooltip="Approve campaign" approve onClick={() => setApproveOpen(true)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </IconBtn>
+          )}
+          {isActive && (
+            <IconBtn tooltip="Abort campaign" danger onClick={() => setAbortOpen(true)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </IconBtn>
+          )}
         </div>
 
         {configureOpen && <ConfigureOverlay onClose={() => setConfigureOpen(false)} />}
         {abortOpen && <AbortModal onClose={() => setAbortOpen(false)} />}
         {approveOpen && <ApproveModal onClose={() => setApproveOpen(false)} />}
+        {vinsOpen && (
+          <VinsModal
+            campaign={campaign}
+            dist={dist}
+            selectedCountry={selectedCountry}
+            effectiveModel={effectiveModel}
+            effectiveInterval={effectiveInterval}
+            onClose={() => setVinsOpen(false)}
+            onCopy={vin => setCopyToast(vin)}
+          />
+        )}
       </div>
     </div>
+    {copyToast && <CopyToast key={copyToast} vin={copyToast} onDone={() => setCopyToast(null)} />}
+    </>
   );
 }
 
