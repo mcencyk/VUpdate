@@ -1998,7 +1998,7 @@ function BackButton({ onClick, label }) {
           boxShadow: '0 2px 8px rgba(0,0,0,0.28)',
           animation: 'tooltipFadeInRight 0.12s ease forwards',
         }}>
-          {label ?? 'Back to Production'}
+          {label ?? 'Back to Field'}
         </div>
       )}
     </div>
@@ -2185,7 +2185,7 @@ export default function CampaignDetailView({ campaign, onBack, activeBrand, onBr
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
           {/* Back button */}
-          <BackButton onClick={handleBack} label={isTest ? 'Back to Tests' : 'Back to Production'} />
+          <BackButton onClick={handleBack} label={isTest ? 'Back to Lab' : 'Back to Field'} />
 
           {/* Campaign name */}
           <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.3, whiteSpace: 'nowrap' }}>

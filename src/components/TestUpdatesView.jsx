@@ -52,7 +52,7 @@ const TABS_TOP = [
 ];
 
 const TABS_BOTTOM = [
-  { id: 'CAMPAIGNS', label: 'CAMPAIGNS', tooltip: 'New Test Campaign' },
+  { id: 'CAMPAIGNS', label: 'CAMPAIGNS', tooltip: 'New Lab Campaign' },
   { id: 'VEHICLES',  label: 'VEHICLES',  tooltip: 'New Vehicle'       },
 ];
 
@@ -336,7 +336,7 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
   const [filters, setFilters] = useState({ statuses: [], types: [], codes: [], dateFrom: '', dateTo: '' });
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Tests');
+  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Lab');
 
   function handleCampaignOpen(row) {
     setLoadingCampaign(row);
@@ -361,12 +361,12 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
 
   function handleCampaignBack() {
     setSelectedCampaign(null);
-    triggerBackLoader('Returning to Tests');
+    triggerBackLoader('Returning to Lab');
   }
 
   function handleExternalNavChange(nav) {
     setSelectedCampaign(null);
-    triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to Tests', () => onNavChange(nav));
+    triggerBackLoader(nav === 'aftersales' ? 'Loading Field' : 'Returning to Lab', () => onNavChange(nav));
   }
 
   if (selectedCampaign) {
@@ -456,10 +456,10 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
       backgroundColor: '#003050',
       padding: 24, gap: 24, boxSizing: 'border-box', overflow: 'hidden',
     }}>
-      <Sidebar activeNav={activeNav} onNavChange={nav => { if (nav !== activeNav) triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to Tests', () => onNavChange(nav)); }} attentionCount={11} testAttentionCount={TAB_TOTAL.attention} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout}
+      <Sidebar activeNav={activeNav} onNavChange={nav => { if (nav !== activeNav) triggerBackLoader(nav === 'aftersales' ? 'Loading Field' : 'Returning to Lab', () => onNavChange(nav)); }} attentionCount={11} testAttentionCount={TAB_TOTAL.attention} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout}
         onOpenCampaign={(campaignId, isTest) => {
           if (isTest) { const c = TEST_CAMPAIGNS.find(x => x.id === campaignId); if (c) handleCampaignOpen(c); }
-          else { triggerBackLoader('Loading Production', () => onNavChange('aftersales')); }
+          else { triggerBackLoader('Loading Field', () => onNavChange('aftersales')); }
         }}
       />
 
@@ -468,7 +468,7 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
         {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
           <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', fontFamily: "'Montserrat', sans-serif", whiteSpace: 'nowrap', letterSpacing: 0.3 }}>
-            Tests
+            Lab
           </span>
 
           <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.15)' }} />
@@ -539,7 +539,7 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
             <input
               value={searchValue}
               onChange={e => setSearchValue(e.target.value)}
-              placeholder="Search campaigns..."
+              placeholder="Search..."
               style={{
                 background: 'transparent', border: 'none', outline: 'none',
                 fontSize: 12, fontWeight: 500, color: '#ffffff',

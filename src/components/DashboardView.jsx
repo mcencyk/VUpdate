@@ -410,7 +410,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
   const [filters, setFilters] = useState({ statuses: [], types: [], codes: [], dateFrom: '', dateTo: '' });
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Production');
+  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Field');
 
   function handleCampaignOpen(row) {
     setLoadingCampaign(row);
@@ -438,17 +438,17 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
 
   function handleCampaignBack() {
     setSelectedCampaign(null);
-    triggerBackLoader('Returning to Production');
+    triggerBackLoader('Returning to Field');
   }
 
   function handleExternalNavChange(nav) {
     setSelectedCampaign(null);
-    triggerBackLoader(nav === 'people' ? 'Loading Tests' : 'Returning to Production', () => setActiveNav(nav));
+    triggerBackLoader(nav === 'people' ? 'Loading Lab' : 'Returning to Field', () => setActiveNav(nav));
   }
 
   function handleSidebarNavChange(nav) {
     if (nav === activeNav) return;
-    triggerBackLoader(nav === 'people' ? 'Loading Tests' : 'Loading Production', () => setActiveNav(nav));
+    triggerBackLoader(nav === 'people' ? 'Loading Lab' : 'Loading Field', () => setActiveNav(nav));
   }
 
   if (activeNav === 'people') {
@@ -627,7 +627,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
             fontFamily: "'Montserrat', sans-serif", whiteSpace: 'nowrap',
             letterSpacing: 0.3,
           }}>
-            Production
+            Field
           </span>
 
           {/* Divider */}
@@ -711,7 +711,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
             <input
               value={searchValue}
               onChange={e => setSearchValue(e.target.value)}
-              placeholder="Search campaigns..."
+              placeholder="Search..."
               style={{
                 background: 'transparent', border: 'none', outline: 'none',
                 fontSize: 12, fontWeight: 500, color: '#ffffff',
