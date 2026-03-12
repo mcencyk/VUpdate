@@ -410,7 +410,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
   const [filters, setFilters] = useState({ statuses: [], types: [], codes: [], dateFrom: '', dateTo: '' });
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [loadSubtitle, setLoadSubtitle] = useState('Returning to dashboard');
+  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Production');
 
   function handleCampaignOpen(row) {
     setLoadingCampaign(row);
@@ -438,12 +438,12 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
 
   function handleCampaignBack() {
     setSelectedCampaign(null);
-    triggerBackLoader('Returning to dashboard');
+    triggerBackLoader('Returning to Production');
   }
 
   function handleExternalNavChange(nav) {
     setSelectedCampaign(null);
-    triggerBackLoader(nav === 'people' ? 'Loading Tests' : 'Returning to dashboard', () => setActiveNav(nav));
+    triggerBackLoader(nav === 'people' ? 'Loading Tests' : 'Returning to Production', () => setActiveNav(nav));
   }
 
   function handleSidebarNavChange(nav) {

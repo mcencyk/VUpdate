@@ -336,7 +336,7 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
   const [filters, setFilters] = useState({ statuses: [], types: [], codes: [], dateFrom: '', dateTo: '' });
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [loadSubtitle, setLoadSubtitle] = useState('Returning to tests');
+  const [loadSubtitle, setLoadSubtitle] = useState('Returning to Tests');
 
   function handleCampaignOpen(row) {
     setLoadingCampaign(row);
@@ -361,12 +361,12 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
 
   function handleCampaignBack() {
     setSelectedCampaign(null);
-    triggerBackLoader('Returning to tests');
+    triggerBackLoader('Returning to Tests');
   }
 
   function handleExternalNavChange(nav) {
     setSelectedCampaign(null);
-    triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to tests', () => onNavChange(nav));
+    triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to Tests', () => onNavChange(nav));
   }
 
   if (selectedCampaign) {
@@ -456,7 +456,7 @@ export default function TestUpdatesView({ activeNav, onNavChange, activeBrand, o
       backgroundColor: '#003050',
       padding: 24, gap: 24, boxSizing: 'border-box', overflow: 'hidden',
     }}>
-      <Sidebar activeNav={activeNav} onNavChange={nav => { if (nav !== activeNav) triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to tests', () => onNavChange(nav)); }} attentionCount={11} testAttentionCount={TAB_TOTAL.attention} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout}
+      <Sidebar activeNav={activeNav} onNavChange={nav => { if (nav !== activeNav) triggerBackLoader(nav === 'aftersales' ? 'Loading Production' : 'Returning to Tests', () => onNavChange(nav)); }} attentionCount={11} testAttentionCount={TAB_TOTAL.attention} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout}
         onOpenCampaign={(campaignId, isTest) => {
           if (isTest) { const c = TEST_CAMPAIGNS.find(x => x.id === campaignId); if (c) handleCampaignOpen(c); }
           else { triggerBackLoader('Loading Production', () => onNavChange('aftersales')); }
