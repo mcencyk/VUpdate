@@ -201,7 +201,7 @@ function SearchIcon() {
   );
 }
 
-function BottomTab({ label, tooltip, active, onClick }) {
+function BottomTab({ label, tooltip, active, onClick, onPlus }) {
   const [hovered, setHovered] = useState(false);
   const [plusHovered, setPlusHovered] = useState(false);
   return (
@@ -227,6 +227,7 @@ function BottomTab({ label, tooltip, active, onClick }) {
       <span
         onMouseEnter={e => { e.stopPropagation(); setPlusHovered(true); }}
         onMouseLeave={e => { e.stopPropagation(); setPlusHovered(false); }}
+        onClick={e => { e.stopPropagation(); onPlus?.(); }}
         style={{
           width: 20, height: 20, borderRadius: 5,
           background: plusHovered ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)',
@@ -444,6 +445,214 @@ const LOAD_STEPS_BACK = [
   'Loading dashboard',
 ];
 
+// ─── New Variable Modal ───────────────────────────────────────────────────────
+function NewVariableModal({ onClose }) {
+  const [closing, setClosing] = useState(false);
+  const [mode, setMode] = useState(null); // null | 'manual' | 'import'
+  const [closeHov, setCloseHov] = useState(false);
+
+  // Manual state
+  const [varName, setVarName] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [fileObj, setFileObj] = useState(null);
+  const fileInputRef = React.useRef(null);
+
+  // Import state
+  const IMPORT_SOURCES = [
+    { id: 'sap', label: 'SAP Integration', icon: '🔗' },
+    { id: 'confluence', label: 'Confluence', icon: '📄' },
+    { id: 'sharepoint', label: 'SharePoint', icon: '☁️' },
+    { id: 'jira', label: 'Jira', icon: '🎯' },
+  ];
+  const [importSource, setImportSource] = useState(null);
+  const [importQuery, setImportQuery] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importDone, setImportDone] = useState(false);
+
+  function handleClose() { setClosing(true); }
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileObj(f);
+    setFileName(f.name);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'csv'].includes(ext)) return;
+    setFileObj(f);
+    setFileName(f.name);
+  }
+
+  function handleImport() {
+    if (!importSource || importing) return;
+    setImporting(true);
+    setTimeout(() => { setImporting(false); setImportDone(true); }, 1600);
+  }
+
+  const canSaveManual = varName.trim().length > 0 && fileObj !== null;
+  const canImport = importSource !== null && !importDone;
+
+  const overlay = { fontSize: 9, fontWeight: 700, letterSpacing: 1, color: 'rgba(128,176,200,0.5)', fontFamily: "'Inter',sans-serif", marginBottom: 6, textTransform: 'uppercase' };
+  const inputStyle = { background: 'rgba(0,50,74,0.4)', border: '1px solid #1e5570', borderRadius: 8, padding: '10px 12px', fontSize: 12, fontWeight: 500, color: '#ffffff', fontFamily: "'Inter',sans-serif", outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s' };
+
+  return (
+    <>
+      <div onClick={handleClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,46,67,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', animation: closing ? 'backdropFadeOut 0.18s ease forwards' : 'backdropFadeIn 0.22s ease' }} />
+      <div
+        onAnimationEnd={() => { if (closing) onClose(); }}
+        style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 520, background: 'rgba(1,45,66,0.82)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid #153f53', borderRadius: 24, padding: 24, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0px 0px 16px 0px rgba(0,0,0,0.24)', zIndex: 201, boxSizing: 'border-box', animation: closing ? 'modalFadeOut 0.18s ease forwards' : 'modalFadeIn 0.22s ease forwards' }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 20, fontWeight: 600, color: '#ffffff', fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.4 }}>New Variable</span>
+          <div style={{ position: 'relative' }}>
+            <button onClick={handleClose} onMouseEnter={() => setCloseHov(true)} onMouseLeave={() => setCloseHov(false)}
+              style={{ width: 24, height: 24, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: closeHov ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            {closeHov && <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '3px 8px', borderRadius: 4, background: '#012d42', border: '1px solid #153f53', fontSize: 10, fontWeight: 600, color: '#80b0c8', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 210 }}>Close</div>}
+          </div>
+        </div>
+
+        {/* Mode selector */}
+        {mode === null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter',sans-serif" }}>Choose how you want to add a new variable:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { id: 'manual', icon: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#28a0c8" strokeWidth="1.5" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>, title: 'Manual Entry', desc: 'Upload an Excel or CSV file from your computer' },
+                { id: 'import', icon: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#28a0c8" strokeWidth="1.5" strokeLinecap="round"><polyline points="8,17 12,21 16,17"/><line x1="12" y1="21" x2="12" y2="7"/><path d="M3 7a9 9 0 0 1 18 0"/></svg>, title: 'Import', desc: 'Fetch a file from an external service (SAP, Confluence, SharePoint…)' },
+              ].map(opt => (
+                <button key={opt.id} onClick={() => setMode(opt.id)}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: '16px', borderRadius: 12, background: 'rgba(0,50,74,0.4)', border: '1px solid #1e5570', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s', textAlign: 'left' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,70,102,0.5)'; e.currentTarget.style.borderColor = '#28779c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,50,74,0.4)'; e.currentTarget.style.borderColor = '#1e5570'; }}
+                >
+                  {opt.icon}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', fontFamily: "'Montserrat',sans-serif", marginBottom: 4 }}>{opt.title}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(128,176,200,0.65)', fontFamily: "'Inter',sans-serif", lineHeight: 1.4 }}>{opt.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manual mode */}
+        {mode === 'manual' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <button onClick={() => setMode(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'rgba(128,176,200,0.6)', fontSize: 11, fontFamily: "'Inter',sans-serif", alignSelf: 'flex-start', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'rgba(128,176,200,1)'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(128,176,200,0.6)'}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+              Back
+            </button>
+            <div>
+              <div style={overlay}>Variable Name</div>
+              <input value={varName} onChange={e => setVarName(e.target.value)} placeholder="e.g. ECU Firmware Baseline Config" style={inputStyle} />
+            </div>
+            <div>
+              <div style={overlay}>File (xlsx / csv)</div>
+              <div
+                onDrop={handleDrop} onDragOver={e => e.preventDefault()}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ border: `2px dashed ${fileObj ? '#28a0c8' : '#1e5570'}`, borderRadius: 10, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: fileObj ? 'rgba(40,160,200,0.07)' : 'rgba(0,50,74,0.3)', transition: 'all 0.15s' }}
+                onMouseEnter={e => { if (!fileObj) { e.currentTarget.style.borderColor = '#28779c'; e.currentTarget.style.background = 'rgba(0,70,102,0.25)'; }}}
+                onMouseLeave={e => { if (!fileObj) { e.currentTarget.style.borderColor = '#1e5570'; e.currentTarget.style.background = 'rgba(0,50,74,0.3)'; }}}
+              >
+                <input ref={fileInputRef} type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={handleFileChange} />
+                {fileObj ? (
+                  <>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#28a0c8" strokeWidth="1.8" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#28a0c8', fontFamily: "'Inter',sans-serif" }}>{fileName}</span>
+                    <span style={{ fontSize: 10, color: 'rgba(128,176,200,0.5)', fontFamily: "'Inter',sans-serif" }}>Click to replace</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(128,176,200,0.5)" strokeWidth="1.8" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter',sans-serif" }}>Drop file here or click to browse</span>
+                    <span style={{ fontSize: 10, color: 'rgba(128,176,200,0.35)', fontFamily: "'Inter',sans-serif" }}>.xlsx or .csv</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={handleClose} style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: 'rgba(128,176,200,0.7)', background: 'transparent', border: '1px solid rgba(128,176,200,0.2)', cursor: 'pointer', transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ccdfe9'; e.currentTarget.style.background = 'rgba(0,70,102,0.28)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(128,176,200,0.7)'; e.currentTarget.style.background = 'transparent'; }}>
+                Cancel
+              </button>
+              <button onClick={canSaveManual ? handleClose : undefined}
+                style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', cursor: canSaveManual ? 'pointer' : 'default', color: canSaveManual ? '#28a0c8' : 'rgba(128,176,200,0.3)', background: canSaveManual ? 'rgba(40,160,200,0.16)' : 'rgba(0,70,102,0.1)', border: canSaveManual ? '1px solid rgba(40,160,200,0.4)' : '1px solid rgba(40,100,140,0.2)', transition: 'all 0.15s' }}
+                onMouseEnter={e => { if (canSaveManual) { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.background = 'rgba(40,160,200,0.28)'; }}} onMouseLeave={e => { if (canSaveManual) { e.currentTarget.style.color = '#28a0c8'; e.currentTarget.style.background = 'rgba(40,160,200,0.16)'; }}}>
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Import mode */}
+        {mode === 'import' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <button onClick={() => { setMode(null); setImportSource(null); setImportQuery(''); setImporting(false); setImportDone(false); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'rgba(128,176,200,0.6)', fontSize: 11, fontFamily: "'Inter',sans-serif", alignSelf: 'flex-start', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'rgba(128,176,200,1)'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(128,176,200,0.6)'}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+              Back
+            </button>
+            <div>
+              <div style={overlay}>Source</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {IMPORT_SOURCES.map(src => {
+                  const active = importSource === src.id;
+                  return (
+                    <button key={src.id} onClick={() => setImportSource(src.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', background: active ? 'rgba(40,160,200,0.14)' : 'rgba(0,50,74,0.4)', border: active ? '1px solid rgba(40,160,200,0.5)' : '1px solid #1e5570', transition: 'all 0.15s', textAlign: 'left' }}
+                      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(0,70,102,0.4)'; e.currentTarget.style.borderColor = '#28779c'; }}}
+                      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'rgba(0,50,74,0.4)'; e.currentTarget.style.borderColor = '#1e5570'; }}}>
+                      <span style={{ fontSize: 18 }}>{src.icon}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: active ? '#28a0c8' : 'rgba(128,176,200,0.8)', fontFamily: "'Inter',sans-serif" }}>{src.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {importSource && !importDone && (
+              <div>
+                <div style={overlay}>File / Path</div>
+                <input value={importQuery} onChange={e => setImportQuery(e.target.value)} placeholder="e.g. /configs/ecu_baseline.xlsx" style={inputStyle} />
+              </div>
+            )}
+            {importDone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 10, background: 'rgba(40,160,80,0.12)', border: '1px solid rgba(40,160,80,0.3)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38b060" strokeWidth="2" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#38b060', fontFamily: "'Inter',sans-serif" }}>Variable imported successfully</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={handleClose} style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: 'rgba(128,176,200,0.7)', background: 'transparent', border: '1px solid rgba(128,176,200,0.2)', cursor: 'pointer', transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ccdfe9'; e.currentTarget.style.background = 'rgba(0,70,102,0.28)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(128,176,200,0.7)'; e.currentTarget.style.background = 'transparent'; }}>
+                {importDone ? 'Close' : 'Cancel'}
+              </button>
+              {!importDone && (
+                <button onClick={handleImport}
+                  style={{ position: 'relative', padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', minWidth: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canImport && !importing ? 'pointer' : 'default', color: canImport ? '#28a0c8' : 'rgba(128,176,200,0.3)', background: canImport ? 'rgba(40,160,200,0.16)' : 'rgba(0,70,102,0.1)', border: canImport ? '1px solid rgba(40,160,200,0.4)' : '1px solid rgba(40,100,140,0.2)', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { if (canImport && !importing) { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.background = 'rgba(40,160,200,0.28)'; }}} onMouseLeave={e => { if (canImport) { e.currentTarget.style.color = '#28a0c8'; e.currentTarget.style.background = 'rgba(40,160,200,0.16)'; }}}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(40,160,200,0.25)', borderTopColor: '#28a0c8', animation: 'iteruSpin 0.75s linear infinite', flexShrink: 0, opacity: importing ? 1 : 0 }} />
+                  <span style={{ position: 'absolute', opacity: importing ? 0 : 1 }}>Import</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function DashboardView({ activeBrand, onBrandChange, onLogout }) {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -466,6 +675,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
   const [varTypeTab, setVarTypeTab] = useState('all');
   const [varSort, setVarSort] = useState({ key: 'code', dir: 'asc' });
   const [varHovCol, setVarHovCol] = useState(null);
+  const [addVariableOpen, setAddVariableOpen] = useState(false);
 
   useEffect(() => {
     if (activeNav === 'field') setActiveBottomTab('CAMPAIGNS');
@@ -686,6 +896,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
   };
 
   return (
+    <>
     <div style={{
       display: 'flex', height: '100vh', width: '100vw',
       background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)',
@@ -1057,11 +1268,14 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
               tooltip={tab.tooltip}
               active={activeBottomTab === tab.id}
               onClick={() => setActiveBottomTab(tab.id)}
+              onPlus={tab.id === 'CRITERIONS' ? () => { setActiveBottomTab('CRITERIONS'); setAddVariableOpen(true); } : undefined}
             />
           ))}
         </div>
 
       </div>
     </div>
+    {addVariableOpen && <NewVariableModal onClose={() => setAddVariableOpen(false)} />}
+    </>
   );
 }
