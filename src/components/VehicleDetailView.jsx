@@ -2,20 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 
 // ─── Count-up animation ───────────────────────────────────────────────────────
-function useCountUp(target, duration = 480) {
+function useCountUp(target, duration = 600) {
   const [current, setCurrent] = useState(0);
-  const fromRef = useRef(0);
-  const rafRef  = useRef(null);
+  const rafRef = useRef(null);
   useEffect(() => {
-    const from = fromRef.current;
-    if (from === target) return;
-    fromRef.current = target;
+    setCurrent(0);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (target === 0) return;
     const t0 = performance.now();
     function tick(now) {
       const p = Math.min((now - t0) / duration, 1);
       const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      setCurrent(Math.round(from + (target - from) * e));
+      setCurrent(Math.round(target * e));
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
@@ -180,24 +178,53 @@ function BackButton({ onClick }) {
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function UpdateHistoryChart({ monthly }) {
   const maxVal = Math.max(...monthly, 1);
+  const [hoveredBar, setHoveredBar] = useState(null);
   return (
-    <div style={{ display:'flex', alignItems:'flex-end', gap:5, height:64 }}>
-      {monthly.map((val, i) => (
-        <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-          <div style={{ width:'100%', height:48, display:'flex', alignItems:'flex-end' }}>
+    <div style={{ display:'flex', alignItems:'flex-end', gap:5, flex:1, minHeight:0 }}>
+      {monthly.map((val, i) => {
+        const isHov = hoveredBar === i;
+        const barH  = val === 0 ? 3 : `${Math.max((val / maxVal) * 100, 8)}%`;
+        return (
+          <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4, height:'100%', minHeight:0 }}>
+            <div
+              style={{ flex:1, display:'flex', alignItems:'flex-end', width:'100%', cursor:'pointer' }}
+              onMouseEnter={() => setHoveredBar(i)}
+              onMouseLeave={() => setHoveredBar(null)}
+            >
+              {/* Bar with tooltip anchored to its top */}
+              <div style={{ width:'100%', height: barH, borderRadius:3, position:'relative',
+                background: isHov
+                  ? 'linear-gradient(180deg, #3cbce0 0%, #2280a8 100%)'
+                  : (val === 0 ? 'rgba(255,255,255,0.06)' : 'linear-gradient(180deg, #28a0c8 0%, #1a6a90 100%)'),
+                animation: 'barEnter 0.55s cubic-bezier(0.22,1,0.36,1) both',
+                transition: 'background 0.2s',
+              }}>
+                {val > 0 && (
+                  <div style={{
+                    position:'absolute', bottom:'calc(100% + 5px)', left:'50%', transform:'translateX(-50%)',
+                    padding:'3px 7px', borderRadius:4, whiteSpace:'nowrap',
+                    background:'#012d42', border:'1px solid #153f53',
+                    fontSize:9, fontWeight:700, color:'#80b0c8', fontFamily:"'Inter', sans-serif",
+                    letterSpacing:0.5,
+                    pointerEvents:'none', zIndex:10,
+                    opacity: isHov ? 1 : 0,
+                    transition: 'opacity 0.18s',
+                  }}>{val}</div>
+                )}
+              </div>
+            </div>
+            {/* Month label */}
             <div style={{
-              width:'100%',
-              height: val === 0 ? 3 : `${Math.max((val / maxVal) * 100, 10)}%`,
-              borderRadius:3,
-              background: val === 0 ? 'rgba(255,255,255,0.06)' : 'linear-gradient(180deg, #28a0c8 0%, #1a6a90 100%)',
-              animation: 'barEnter 0.55s cubic-bezier(0.22,1,0.36,1) both',
-            }} />
+              fontSize:8, fontWeight:700, letterSpacing:0.9, textTransform:'uppercase',
+              color: isHov ? 'rgba(128,176,200,0.85)' : 'rgba(128,176,200,0.35)',
+              fontFamily:"'Inter', sans-serif", flexShrink:0,
+              transition: 'color 0.18s',
+            }}>
+              {MONTHS[i]}
+            </div>
           </div>
-          <div style={{ fontSize:8, fontWeight:600, color:'rgba(128,176,200,0.4)', fontFamily:"'Inter', sans-serif" }}>
-            {MONTHS[i]}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -244,12 +271,14 @@ function IconBtn({ children, tooltip, danger, onClick }) {
 function ConfigField({ label, value, onChange, type = 'text' }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const isNum = type === 'number';
   const floated = focused || String(value).length > 0;
   const borderColor = focused ? '#28779c' : hovered ? '#2a6a87' : '#16506c';
   const bgColor     = focused ? 'rgba(0,70,102,0.24)' : hovered ? 'rgba(0,70,102,0.22)' : 'rgba(0,70,102,0.16)';
   const shadow      = focused
     ? '0px 0px 8px 0px rgba(40,119,156,0.32), inset 0px 0px 4px 0px rgba(0,0,0,0.24)'
     : '0px 1px 2px 0px rgba(0,0,0,0.12)';
+  function step(delta) { onChange(String((parseInt(value, 10) || 0) + delta)); }
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -273,19 +302,50 @@ function ConfigField({ label, value, onChange, type = 'text' }) {
         transition:'top 0.15s, font-size 0.15s, transform 0.15s, color 0.15s',
       }}>{label}</label>
       <input
-        type={type}
+        type={isNum ? 'text' : type}
+        inputMode={isNum ? 'numeric' : undefined}
         value={value}
         onChange={e => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
-          position:'absolute', left:0, right:0, top:0, bottom:0,
+          position:'absolute', left:0, right: isNum ? 36 : 0, top:0, bottom:0,
           background:'transparent', border:'none', outline:'none',
           fontFamily:"'Inter', sans-serif", fontSize:13, fontWeight:500,
           color:'#ffffff', caretColor:'#ffffff',
           padding:'22px 12px 6px',
         }}
       />
+      {isNum && (
+        <div style={{
+          position:'absolute', right:0, top:0, bottom:0, width:36,
+          display:'flex', flexDirection:'column',
+          borderLeft:'1px solid rgba(40,100,140,0.25)',
+        }}>
+          {[1, -1].map(delta => (
+            <button
+              key={delta}
+              tabIndex={-1}
+              onClick={() => step(delta)}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,90,130,0.35)'; e.currentTarget.style.color = '#ffffff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(128,176,200,0.7)'; }}
+              style={{
+                flex:1, background:'transparent', border:'none',
+                borderBottom: delta === 1 ? '1px solid rgba(40,100,140,0.25)' : 'none',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                color:'rgba(128,176,200,0.7)', transition:'background 0.15s, color 0.15s',
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {delta === 1
+                  ? <polyline points="6 15 12 9 18 15"/>
+                  : <polyline points="6 9 12 15 18 9"/>
+                }
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -761,10 +821,10 @@ export default function VehicleDetailView({ vehicle, onBack, onNavChange, active
           </div>
 
           {/* ── Bottom panels ── */}
-          <div style={{ display:'flex', gap:10, flexShrink:0, paddingBottom:72 }}>
+          <div style={{ display:'flex', gap:10, flex:1, minHeight:220, paddingBottom:72 }}>
 
             {/* Update history */}
-            <div style={{ flex:2, background:'rgba(1,45,66,0.55)', border:'1px solid #153f53', borderRadius:16, padding:'16px 20px', display:'flex', flexDirection:'column', gap:16 }}>
+            <div style={{ flex:2, background:'rgba(1,45,66,0.55)', border:'1px solid #153f53', borderRadius:16, padding:'16px 20px', display:'flex', flexDirection:'column', gap:16, minHeight:0 }}>
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
                 <div>
                   <div style={{ fontSize:26, fontWeight:700, color:'#ffffff', fontFamily:"'Inter', sans-serif" }}>
