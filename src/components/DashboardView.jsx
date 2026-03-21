@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import CampaignDetailView from './CampaignDetailView';
 import TestUpdatesView from './TestUpdatesView';
@@ -500,18 +500,40 @@ function VarBackButton({ onClick }) {
 function VarParamsModal({ variable, onClose }) {
   const [closing, setClosing] = useState(false);
   const [closeHov, setCloseHov] = useState(false);
+  const [cancelHov, setCancelHov] = useState(false);
+  const [saveHov, setSaveHov] = useState(false);
+  const [name, setName] = useState(variable.name);
+  const [nameFocused, setNameFocused] = useState(false);
+  const [nameHovered, setNameHovered] = useState(false);
+  const [status, setStatus] = useState(variable.status === 'Deprecated' ? 'Deprecated' : 'Active');
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusHovered, setStatusHovered] = useState(false);
+  const statusRef = useRef(null);
+
+  const initStatus = variable.status === 'Deprecated' ? 'Deprecated' : 'Active';
+  const isDirty = name !== variable.name || status !== initStatus;
+
+  useEffect(() => {
+    const h = e => { if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
   function handleClose() { setClosing(true); }
-  const row = (label, value) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, color: 'rgba(128,176,200,0.5)', fontFamily: "'Inter',sans-serif", textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: 12, fontWeight: 500, color: '#ccdfe9', fontFamily: "'Inter',sans-serif", background: 'rgba(0,50,74,0.4)', border: '1px solid #1e5570', borderRadius: 8, padding: '10px 12px' }}>{value || '—'}</div>
-    </div>
-  );
+
+  const nameBorder = nameFocused ? '#28779c' : nameHovered ? '#2a6a87' : '#16506c';
+  const nameBg = nameFocused ? 'rgba(0,70,102,0.24)' : nameHovered ? 'rgba(0,70,102,0.22)' : 'rgba(0,70,102,0.16)';
+  const nameShadow = nameFocused ? '0px 0px 8px 0px rgba(40,119,156,0.32), inset 0px 0px 4px 0px rgba(0,0,0,0.24)' : '0px 1px 2px 0px rgba(0,0,0,0.12)';
+  const statusBorder = statusOpen ? '#28779c' : statusHovered ? '#2a6a87' : '#16506c';
+  const statusBg = statusOpen ? 'rgba(0,70,102,0.24)' : statusHovered ? 'rgba(0,70,102,0.22)' : 'rgba(0,70,102,0.16)';
+  const statusShadow = statusOpen ? '0px 0px 8px 0px rgba(40,119,156,0.32), inset 0px 0px 4px 0px rgba(0,0,0,0.24)' : '0px 1px 2px 0px rgba(0,0,0,0.12)';
+
   return (
     <>
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,46,67,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', animation: closing ? 'backdropFadeOut 0.18s ease forwards' : 'backdropFadeIn 0.22s ease' }} />
       <div onAnimationEnd={() => { if (closing) onClose(); }}
         style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 520, background: 'rgba(1,45,66,0.82)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid #153f53', borderRadius: 24, padding: 24, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0px 0px 16px 0px rgba(0,0,0,0.24)', zIndex: 201, boxSizing: 'border-box', animation: closing ? 'modalFadeOut 0.18s ease forwards' : 'modalFadeIn 0.22s ease forwards' }}>
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 20, fontWeight: 600, color: '#ffffff', fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.4 }}>Variable Parameters</span>
           <div style={{ position: 'relative' }}>
@@ -522,21 +544,69 @@ function VarParamsModal({ variable, onClose }) {
             {closeHov && <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '3px 8px', borderRadius: 4, background: '#012d42', border: '1px solid #153f53', fontSize: 10, fontWeight: 600, color: '#80b0c8', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 210 }}>Close</div>}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {row('Code', variable.code)}
-          {row('Type', variable.type)}
-          {row('Status', variable.status)}
-          {row('Campaigns', String(variable.campaigns))}
-          {row('Created', variable.created)}
-          {row('Modified', variable.modified)}
+        {/* Read-only meta row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          {[['Code', variable.code], ['Created', variable.created], ['Modified', variable.modified]].map(([lbl, val]) => (
+            <div key={lbl} style={{ height: 52, borderRadius: 8, border: '1px solid rgba(21,63,83,0.5)', background: 'rgba(0,40,60,0.3)', padding: '0 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.8, color: 'rgba(128,176,200,0.45)', fontFamily: "'Inter', sans-serif", textTransform: 'uppercase' }}>{lbl}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(204,223,233,0.55)', fontFamily: "'Inter', sans-serif" }}>{val || '—'}</span>
+            </div>
+          ))}
         </div>
-        {row('Name', variable.name)}
-        {row('Source File', variable.source)}
-        {row('Author', variable.author)}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleClose} style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: '#28a0c8', background: 'rgba(40,160,200,0.16)', border: '1px solid rgba(40,160,200,0.4)', cursor: 'pointer', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(40,160,200,0.28)'; }} onMouseLeave={e => { e.currentTarget.style.color = '#28a0c8'; e.currentTarget.style.background = 'rgba(40,160,200,0.16)'; }}>
-            Close
+        {/* Editable Name — floating label */}
+        <div
+          onMouseEnter={() => setNameHovered(true)}
+          onMouseLeave={() => setNameHovered(false)}
+          style={{ position: 'relative', height: 52, borderRadius: 8, border: `1px solid ${nameBorder}`, background: nameBg, boxShadow: nameShadow, transition: 'border-color 0.15s, box-shadow 0.15s, background 0.15s', overflow: 'hidden', cursor: 'text' }}
+          onClick={() => document.getElementById('varParamName')?.focus()}
+        >
+          <label style={{ position: 'absolute', left: 12, top: 7, fontSize: 9, fontWeight: 700, color: 'rgba(128,176,200,0.55)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', pointerEvents: 'none' }}>Name</label>
+          <input
+            id="varParamName"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onFocus={() => setNameFocused(true)}
+            onBlur={() => setNameFocused(false)}
+            style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: 'transparent', border: 'none', outline: 'none', fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500, color: '#ffffff', caretColor: '#ffffff', padding: '22px 12px 6px' }}
+          />
+        </div>
+        {/* Editable Status — custom dropdown */}
+        <div ref={statusRef} style={{ position: 'relative' }}>
+          <div
+            onClick={() => setStatusOpen(o => !o)}
+            onMouseEnter={() => setStatusHovered(true)}
+            onMouseLeave={() => setStatusHovered(false)}
+            style={{ height: 52, borderRadius: 8, border: `1px solid ${statusBorder}`, background: statusBg, boxShadow: statusShadow, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(128,176,200,0.55)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase' }}>Status</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: '#ffffff', fontFamily: "'Inter', sans-serif" }}>{status}</span>
+            </div>
+            <span style={{ color: '#80b0c8', opacity: statusOpen ? 1 : 0.6, transform: statusOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s, opacity 0.15s', display: 'flex' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+          {statusOpen && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#012d42', border: '1px solid #153f53', borderRadius: 8, boxShadow: '0px 8px 12px 0px rgba(0,0,0,0.18)', overflow: 'hidden', zIndex: 220 }}>
+              {['Active', 'Deprecated'].map((opt, i) => (
+                <div key={opt} onClick={() => { setStatus(opt); setStatusOpen(false); }}
+                  style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: i === 0 ? '1px solid #153f53' : 'none', background: 'transparent', transition: 'background 0.12s', fontSize: 12, fontWeight: 500, color: opt === status ? '#ffffff' : '#80b0c8', fontFamily: "'Inter', sans-serif" }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,70,102,0.3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >{opt}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={handleClose} onMouseEnter={() => setCancelHov(true)} onMouseLeave={() => setCancelHov(false)}
+            style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: '#ccdfe9', background: cancelHov ? '#013d58' : '#012d42', border: '1px solid #004666', cursor: 'pointer', transition: 'background 0.15s' }}>
+            Cancel
+          </button>
+          <button disabled={!isDirty} onMouseEnter={() => setSaveHov(true)} onMouseLeave={() => setSaveHov(false)}
+            style={{ padding: '10px 18px', borderRadius: 8, fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: isDirty ? (saveHov ? '#fff' : '#28a0c8') : 'rgba(128,176,200,0.3)', background: isDirty ? (saveHov ? 'rgba(40,160,200,0.28)' : 'rgba(40,160,200,0.16)') : 'rgba(0,50,74,0.2)', border: `1px solid ${isDirty ? 'rgba(40,160,200,0.4)' : 'rgba(21,63,83,0.4)'}`, cursor: isDirty ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
+            Save Changes
           </button>
         </div>
       </div>
@@ -569,10 +639,10 @@ function VarDeleteModal({ variable, onClose, onConfirm }) {
         {/* Body */}
         <div style={{ background: '#012d42', border: '1px solid #153f53', borderRadius: 16, padding: '16px 24px 20px', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0px 0px 2px 0px rgba(0,0,0,0.24)' }}>
           <p style={{ fontSize: 12, fontWeight: 500, color: '#ccdfe9', fontFamily: "'Inter', sans-serif", lineHeight: '20px', margin: 0 }}>
-            Deleting this variable will remove it from the system along with all its source file history. Any campaigns currently referencing this variable may be affected. This action cannot be undone.
+            Deleting this variable will permanently remove it from the system along with all its source file history. This variable is currently referenced by <span style={{ fontWeight: 700, color: '#ffffff' }}>{variable.campaigns} campaign{variable.campaigns !== 1 ? 's' : ''}</span> — removing it may affect their operation. This action cannot be undone.
           </p>
           <p style={{ fontSize: 14, fontWeight: 700, color: '#ffffff', fontFamily: "'Inter', sans-serif", lineHeight: '22px', margin: 0 }}>
-            Are you sure you want to delete <span style={{ color: '#e06060' }}>{variable.name}</span>?
+            Are you sure you want to delete <span style={{ fontWeight: 700 }}>{variable.name}</span>?
           </p>
         </div>
         {/* Footer */}
@@ -642,15 +712,49 @@ function FileRow({ file, isCurrent }) {
   );
 }
 
-function VariableDetailView({ variable, onBack, activeBrand, onBrandChange, onLogout }) {
+function VariableDetailView({ variable, onBack, onNavChange, activeBrand, onBrandChange, onLogout }) {
   const [paramsOpen, setParamsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loaderVisible, setLoaderVisible] = useState(false);
+  const [loadStep, setLoadStep] = useState(0);
+  const [loadSubtitle, setLoadSubtitle] = useState('');
+  const LOAD_STEPS = ['Syncing variable data', 'Refreshing dataset', 'Loading view'];
+
+  function triggerLoader(subtitle, onDone) {
+    setLoadSubtitle(subtitle);
+    setLoading(true); setLoadStep(0);
+    requestAnimationFrame(() => requestAnimationFrame(() => setLoaderVisible(true)));
+    setTimeout(() => setLoadStep(1), 450);
+    setTimeout(() => setLoadStep(2), 900);
+    setTimeout(() => setLoaderVisible(false), 1300);
+    setTimeout(() => { setLoading(false); setLoadStep(0); if (onDone) onDone(); }, 1600);
+  }
 
   function handleRefresh() {
     if (refreshing) return;
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1200);
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100vw', height: '100vh', background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)', backgroundColor: '#003050' }}>
+        <div style={{ opacity: loaderVisible ? 1 : 0, transition: 'opacity 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+          {loadSubtitle && <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(128,176,200,0.6)', fontFamily: "'Inter', sans-serif", letterSpacing: 0.5 }}>{loadSubtitle}</div>}
+          <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(128,176,200,0.15)', borderTopColor: '#28a0c8', animation: 'iteruSpin 0.85s linear infinite' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {LOAD_STEPS.map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, fontFamily: "'Inter', sans-serif", fontWeight: 500, letterSpacing: 0.2, color: i < loadStep ? 'rgba(56,176,96,0.85)' : i === loadStep ? 'rgba(204,223,233,0.9)' : 'rgba(128,176,200,0.2)', transition: 'color 0.3s ease' }}>
+                <span style={{ width: 14, display: 'flex', justifyContent: 'center', fontSize: i < loadStep ? 11 : 13 }}>{i < loadStep ? '✓' : i === loadStep ? '›' : '·'}</span>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const files = variable.files || [{ name: variable.source, date: variable.modified, type: variable.type }];
@@ -661,7 +765,7 @@ function VariableDetailView({ variable, onBack, activeBrand, onBrandChange, onLo
   return (
     <>
       <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'radial-gradient(ellipse 80% 70% at 50% 30%, #005478 0%, #004060 40%, #002233 100%)', backgroundColor: '#003050', padding: 24, gap: 24, boxSizing: 'border-box', overflow: 'hidden' }}>
-        <Sidebar activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />
+        <Sidebar activeNav="field" onNavChange={nav => { if (nav === 'field') return; triggerLoader(nav === 'people' ? 'Loading Lab' : 'Loading Field', () => onNavChange(nav)); }} attentionCount={11} testAttentionCount={5} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, position: 'relative' }}>
 
           {/* Header — campaign pattern */}
@@ -671,24 +775,24 @@ function VariableDetailView({ variable, onBack, activeBrand, onBrandChange, onLo
             <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0, overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-                <span style={metaLabel}>CODE:</span>
-                <span style={metaValue}>VAR-{variable.code}</span>
+                <span style={metaLabel}>CAMPAIGNS:</span>
+                <span style={metaValue}>{variable.campaigns}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-                <span style={metaLabel}>AUTHOR:</span>
-                <span style={metaValue}>{variable.author}</span>
+                <span style={metaLabel}>CODE:</span>
+                <span style={metaValue}>{variable.code}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
                 <span style={metaLabel}>CREATED:</span>
                 <span style={metaValue}>{variable.created}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-                <span style={metaLabel}>MODIFIED:</span>
+                <span style={metaLabel}>LAST MODIFIED:</span>
                 <span style={metaValue}>{variable.modified}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-                <span style={metaLabel}>CAMPAIGNS:</span>
-                <span style={metaValue}>{variable.campaigns}</span>
+                <span style={metaLabel}>AUTHOR:</span>
+                <span style={metaValue}>{variable.author}</span>
               </div>
             </div>
             <div style={{ flex: 1 }} />
@@ -1032,7 +1136,14 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout }) 
   }
 
   if (selectedVariable) {
-    return <VariableDetailView variable={selectedVariable} onBack={() => setSelectedVariable(null)} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />;
+    return <VariableDetailView
+      variable={selectedVariable}
+      onBack={() => setSelectedVariable(null)}
+      onNavChange={nav => { setSelectedVariable(null); triggerBackLoader(nav === 'people' ? 'Loading Lab' : 'Loading Field', () => setActiveNav(nav)); }}
+      activeBrand={activeBrand}
+      onBrandChange={onBrandChange}
+      onLogout={onLogout}
+    />;
   }
 
   if (selectedCampaign) {
