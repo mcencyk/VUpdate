@@ -788,8 +788,6 @@ function AddFilterBtn({ hasFilters, onSelect }) {
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <button
         onClick={handleClick}
-        onMouseEnter={() => setHov(true)}
-        onMouseLeave={() => setHov(false)}
         style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid rgba(21,63,83,0.8)', background: 'transparent', color: 'rgba(128,176,200,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all 0.12s' }}
         onMouseEnter={e => { setHov(true); e.currentTarget.style.borderColor = '#28779c'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.background = 'rgba(0,70,102,0.3)'; }}
         onMouseLeave={e => { setHov(false); e.currentTarget.style.borderColor = 'rgba(21,63,83,0.8)'; e.currentTarget.style.color = 'rgba(128,176,200,0.55)'; e.currentTarget.style.background = 'transparent'; }}
