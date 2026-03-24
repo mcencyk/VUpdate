@@ -196,15 +196,16 @@ body {
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    transparent 290deg,
-    rgba(40, 180, 220, 0.0) 300deg,
-    rgba(40, 200, 240, 0.55) 340deg,
-    rgba(160, 240, 255, 1.0) 355deg,
-    rgba(40, 200, 240, 0.55) 370deg,
+    transparent 330deg,
+    rgba(40, 160, 200, 0.0) 338deg,
+    rgba(80, 200, 235, 0.45) 352deg,
+    rgba(160, 230, 255, 0.65) 358deg,
+    rgba(80, 200, 235, 0.45) 364deg,
+    rgba(40, 160, 200, 0.0) 372deg,
     transparent 380deg,
     transparent 360deg
   );
-  animation: welcome-shimmer-spin 3.2s linear infinite;
+  animation: welcome-shimmer-spin 6s linear infinite;
 }
 @keyframes welcome-shimmer-spin {
   from { transform: rotate(0deg); }
