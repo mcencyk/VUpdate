@@ -331,7 +331,7 @@ function LogoutModal({ onCancel, onConfirm }) {
 }
 
 // ─── Profile overlay ──────────────────────────────────────────────────────────
-function ProfileOverlay({ onClose, activeBrand: activeBrandProp, onBrandChange, onLogout }) {
+function ProfileOverlay({ onClose, activeBrand: activeBrandProp, onBrandChange, onLogout, userName }) {
   const [localBrandId, setLocalBrandId] = useState(activeBrandProp?.id ?? 'audi');
   const [closing, setClosing] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -422,7 +422,7 @@ function ProfileOverlay({ onClose, activeBrand: activeBrandProp, onBrandChange, 
                 fontSize: 32, fontWeight: 700, color: 'rgba(204,223,233,0.85)',
                 fontFamily: "'Inter', sans-serif", letterSpacing: 1,
               }}>
-                JS
+                {(userName || 'A').charAt(0).toUpperCase()}
 </span>
             </div>
           </div>
@@ -434,7 +434,7 @@ function ProfileOverlay({ onClose, activeBrand: activeBrandProp, onBrandChange, 
               fontFamily: "'Montserrat', sans-serif", letterSpacing: 0.3,
               whiteSpace: 'nowrap',
             }}>
-              John Smith
+              {userName ? userName.charAt(0).toUpperCase() + userName.slice(1).toLowerCase() : 'Admin'}
             </span>
             <span style={{
               fontSize: 10, fontWeight: 600, color: 'rgba(204,223,233,0.65)',
@@ -1334,7 +1334,7 @@ function ReportsOverlay({ onClose }) {
   );
 }
 
-function AvatarButton({ profileOpen, onClick }) {
+function AvatarButton({ profileOpen, onClick, userName }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div style={{ position: 'relative' }}>
@@ -1355,7 +1355,7 @@ function AvatarButton({ profileOpen, onClick }) {
           boxSizing: 'border-box',
         }}
       >
-        JS
+        {(userName || 'A').charAt(0).toUpperCase()}
       </div>
       {hovered && !profileOpen && (
         <div style={{
@@ -1795,7 +1795,7 @@ function NotificationsOverlay({ notifications, onClose, onMarkAllRead, onMarkRea
 }
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
-export default function Sidebar({ activeNav, onNavChange, attentionCount, testAttentionCount, activeBrand, onBrandChange, onLogout, onOpenCampaign, onShowGuide }) {
+export default function Sidebar({ activeNav, onNavChange, attentionCount, testAttentionCount, activeBrand, onBrandChange, onLogout, onOpenCampaign, onShowGuide, userName }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [systemSettingsOpen, setSystemSettingsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -1903,13 +1903,13 @@ export default function Sidebar({ activeNav, onNavChange, attentionCount, testAt
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '12px 0 16px',
         }}>
-          <AvatarButton profileOpen={profileOpen} onClick={() => setProfileOpen(o => !o)} />
+          <AvatarButton profileOpen={profileOpen} onClick={() => setProfileOpen(o => !o)} userName={userName} />
         </div>
       </div>
 
       {systemSettingsOpen && <SystemSettingsOverlay onClose={() => setSystemSettingsOpen(false)} />}
       {reportsOpen && <ReportsOverlay onClose={() => setReportsOpen(false)} />}
-      {profileOpen && <ProfileOverlay onClose={() => setProfileOpen(false)} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} />}
+      {profileOpen && <ProfileOverlay onClose={() => setProfileOpen(false)} activeBrand={activeBrand} onBrandChange={onBrandChange} onLogout={onLogout} userName={userName} />}
       {dataImportOpen && <DataImportOverlay onClose={() => setDataImportOpen(false)} onScheduled={() => { setDataImportOpen(false); setShowToast(true); }} />}
       {showToast && <ScheduleToast onDone={() => setShowToast(false)} />}
       {qToasts.map((t, i) => (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import FloatingInput from './components/FloatingInput';
 import BrandGrid, { BRANDS } from './components/BrandGrid';
 import VariantSelect from './components/VariantSelect';
@@ -175,6 +175,30 @@ export default function App() {
   const [toastKey, setToastKey] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [disclaimerClosing, setDisclaimerClosing] = useState(false);
+  const [disclaimerXHovered, setDisclaimerXHovered] = useState(false);
+  const [disclaimerTop, setDisclaimerTop] = useState(null);
+  const inputsRowRef = useRef(null);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      const t = setTimeout(() => {
+        if (inputsRowRef.current) {
+          const rect = inputsRowRef.current.getBoundingClientRect();
+          setDisclaimerTop(rect.top);
+        }
+        setShowDisclaimer(true);
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+  }, [loggedIn]);
+
+  function closeDisclaimer() {
+    setDisclaimerClosing(true);
+    setTimeout(() => { setShowDisclaimer(false); setDisclaimerClosing(false); }, 320);
+  }
 
   function handleBrandChange(newBrand) {
     setDashVisible(false);
@@ -211,12 +235,15 @@ export default function App() {
   const isMobile = windowWidth < 560;
 
   function handleLogin() {
-    if (loginUser !== 'admin' || loginPass !== 'admin') {
+    const trimmed = loginUser.trim();
+    const valid = trimmed.length > 0 && trimmed.length <= 12 && !/\s/.test(trimmed);
+    if (!valid || loginPass !== 'admin') {
       setLoginError(true);
       setShowErrorToast(true);
       setToastKey(k => k + 1);
       return;
     }
+    setUserName(trimmed);
     setLoginError(false);
     setLoginVisible(false);
     setTimeout(() => {
@@ -269,9 +296,10 @@ export default function App() {
             showTutorial={showTutorial}
             onTutorialDone={() => setShowTutorial(false)}
             onShowGuide={() => { setShowWelcome(false); setShowTutorial(true); }}
+            userName={userName}
           />
         </div>
-        {showWelcome && <WelcomeModal onStart={() => { setShowWelcome(false); setShowTutorial(true); }} />}
+        {showWelcome && <WelcomeModal userName={userName} onStart={() => { setShowWelcome(false); setShowTutorial(true); }} />}
       </>
     );
   }
@@ -364,7 +392,7 @@ export default function App() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Inputs */}
-        <div style={{ display: 'flex', gap: 12 }} onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}>
+        <div ref={inputsRowRef} style={{ display: 'flex', gap: 12 }} onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}>
           <FloatingInput label="User" type="text" value={loginUser} onChange={v => { setLoginUser(v); setLoginError(false); }} error={loginError} />
           <FloatingInput label="Password" type="password" value={loginPass} onChange={v => { setLoginPass(v); setLoginError(false); }} error={loginError} />
         </div>
@@ -391,6 +419,67 @@ export default function App() {
 
     </div>
     {showErrorToast && <ErrorToast key={toastKey} onDone={() => setShowErrorToast(false)} />}
-    </>
+    {showDisclaimer && (
+      <div style={{
+        position: 'fixed',
+        top: disclaimerTop ?? '50%',
+        left: '50%',
+        transform: disclaimerTop != null ? 'translateX(-50%)' : 'translate(-50%, -50%)',
+        maxWidth: 480,
+        minWidth: 320,
+        background: 'rgba(30, 14, 0, 0.82)',
+        border: '1px solid rgba(255, 160, 40, 0.45)',
+        borderRadius: 12,
+        padding: '12px 36px 12px 16px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        zIndex: 9999,
+        fontFamily: "'Inter', sans-serif",
+        animation: disclaimerClosing ? 'disclaimerOut 0.3s ease forwards' : 'disclaimerIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
+        opacity: 0,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#ffaa28', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5 }}>
+          Non-commercial project
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255, 200, 120, 0.82)', lineHeight: 1.6 }}>
+          XOTA is a personal, non-commercial hobby project created as a case study of a fleet management application. It is not intended for production use.
+        </div>
+        <div
+          onClick={closeDisclaimer}
+          onMouseEnter={() => setDisclaimerXHovered(true)}
+          onMouseLeave={() => setDisclaimerXHovered(false)}
+          style={{
+            position: 'absolute', top: 10, right: 10,
+            width: 20, height: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            color: disclaimerXHovered ? 'rgba(255,200,120,0.95)' : 'rgba(255,160,40,0.5)',
+            fontSize: 14,
+            transition: 'color 0.15s ease',
+          }}
+        >
+          ✕
+          {disclaimerXHovered && (
+            <div style={{
+              position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+              marginBottom: 5,
+              background: 'rgba(0,20,30,0.92)',
+              border: '1px solid rgba(255,160,40,0.25)',
+              borderRadius: 5,
+              padding: '3px 7px',
+              fontSize: 10,
+              fontWeight: 500,
+              color: 'rgba(255,200,120,0.85)',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+            }}>
+              Close
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+</>
   );
 }

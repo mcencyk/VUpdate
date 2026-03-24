@@ -1184,7 +1184,7 @@ function NewVariableModal({ onClose }) {
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
-export default function DashboardView({ activeBrand, onBrandChange, onLogout, showTutorial, onTutorialDone, onShowGuide }) {
+export default function DashboardView({ activeBrand, onBrandChange, onLogout, showTutorial, onTutorialDone, onShowGuide, userName }) {
   const [selectedVariable, setSelectedVariable] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [loadingCampaign, setLoadingCampaign] = useState(null);
@@ -1463,6 +1463,7 @@ export default function DashboardView({ activeBrand, onBrandChange, onLogout, sh
           else { const c = CAMPAIGNS.find(x => x.id === campaignId); if (c) handleCampaignOpen(c); }
         }}
         onShowGuide={onShowGuide}
+        userName={userName}
       />
 
       {/* ── Main area ── */}

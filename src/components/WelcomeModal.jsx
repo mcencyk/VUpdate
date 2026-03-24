@@ -3,7 +3,7 @@ import { useState } from 'react';
 const F = "'Inter', sans-serif";
 const FM = "'Montserrat', sans-serif";
 
-export default function WelcomeModal({ onStart }) {
+export default function WelcomeModal({ onStart, userName }) {
   const [closing, setClosing] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -54,7 +54,7 @@ export default function WelcomeModal({ onStart }) {
           </div>
 
           <div style={{ fontSize: 24, fontWeight: 700, color: '#ffffff', fontFamily: FM, letterSpacing: 0.3, marginBottom: 12 }}>
-            Welcome to XOTA
+            {userName ? `Welcome, ${userName.charAt(0).toUpperCase() + userName.slice(1).toLowerCase()}.` : 'Welcome to XOTA.'}
           </div>
 
           <div style={{ fontSize: 13, fontWeight: 400, color: 'rgba(204,223,233,0.65)', fontFamily: F, lineHeight: 1.75, marginBottom: 24 }}>

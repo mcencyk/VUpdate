@@ -124,6 +124,16 @@ body {
   to   { opacity: 0; transform: translateX(16px); }
 }
 
+@keyframes disclaimerIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes disclaimerOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(16px); }
+}
+
 @keyframes schedSpin {
   to { transform: rotate(360deg); }
 }

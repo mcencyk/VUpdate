@@ -473,7 +473,7 @@ function ParamLabel({ label, tooltip }) {
       {hov && tooltip && rect && ReactDOM.createPortal(
         <div style={{
           position: 'fixed',
-          top: rect.bottom + 5,
+          bottom: window.innerHeight - rect.top + 5,
           left: rect.left,
           maxWidth: 220, width: 'max-content',
           background: '#012d42', border: '1px solid #153f53', borderRadius: 8,
@@ -1371,6 +1371,9 @@ export default function NewCampaignWizard({ onClose, onSuccess }) {
   const [discardOpen, setDiscardOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [showUngroupedToast, setShowUngroupedToast] = useState(false);
+  const [ungroupedToastHiding, setUngroupedToastHiding] = useState(false);
+  const stepperRef = useRef(null);
   function handleClose() { setDiscardOpen(true); }
   function handleConfirmDiscard() { setDiscardOpen(false); setClosing(true); }
   function handleConfirm() {
@@ -1466,7 +1469,7 @@ export default function NewCampaignWizard({ onClose, onSuccess }) {
         </div>
 
         {/* Step indicator */}
-        <div style={{ opacity: recalculating ? 0.4 : 1, transition: 'opacity 0.2s', pointerEvents: recalculating ? 'none' : 'auto' }}>
+        <div ref={stepperRef} style={{ opacity: recalculating ? 0.4 : 1, transition: 'opacity 0.2s', pointerEvents: recalculating ? 'none' : 'auto' }}>
           <StepIndicator step={step} />
         </div>
 
@@ -1536,7 +1539,18 @@ export default function NewCampaignWizard({ onClose, onSuccess }) {
             </button>
             {step < 4 ? (
               <button
-                onClick={() => setStep(s => s + 1)}
+                onClick={() => {
+                  if (step === 2 && intervals.filter(i => !i.isUngrouped).length === 0) {
+                    setShowUngroupedToast(stepperRef.current ? stepperRef.current.getBoundingClientRect() : true);
+                    setUngroupedToastHiding(false);
+                    clearTimeout(window._ungroupedToastTimer);
+                    window._ungroupedToastTimer = setTimeout(() => {
+                      setUngroupedToastHiding(true);
+                      setTimeout(() => setShowUngroupedToast(false), 350);
+                    }, 5000);
+                  }
+                  setStep(s => s + 1);
+                }}
                 disabled={!canNext}
                 style={{ ...btnBase, background: canNext ? 'rgba(0,70,102,0.7)' : 'rgba(0,40,60,0.4)', border: canNext ? '1px solid #28779c' : '1px solid #0e3a52', color: canNext ? '#ffffff' : 'rgba(128,176,200,0.25)', cursor: canNext ? 'pointer' : 'default' }}
                 onMouseEnter={e => { if (canNext) e.currentTarget.style.background = 'rgba(0,90,130,0.8)'; }}
@@ -1561,6 +1575,36 @@ export default function NewCampaignWizard({ onClose, onSuccess }) {
 
       {discardOpen && (
         <DiscardModal onCancel={() => setDiscardOpen(false)} onConfirm={handleConfirmDiscard} />
+      )}
+      {showUngroupedToast && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed',
+          top: (showUngroupedToast?.bottom ?? 0) + 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,30,50,0.92)',
+          border: '1px solid rgba(64,160,220,0.4)',
+          borderRadius: 10,
+          padding: '12px 16px',
+          maxWidth: 420,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          zIndex: 9999,
+          fontFamily: "'Inter', sans-serif",
+          animation: ungroupedToastHiding
+            ? 'disclaimerOut 0.35s ease forwards'
+            : 'disclaimerIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
+          opacity: 0,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#40a8dc', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5 }}>
+            No intervals defined
+          </div>
+          <div style={{ fontSize: 11.5, fontWeight: 400, color: 'rgba(180,220,240,0.8)', lineHeight: 1.6 }}>
+            No additional intervals were defined. All vehicles are in a single group and will be updated simultaneously.
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );
