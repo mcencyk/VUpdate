@@ -3,6 +3,7 @@ import FloatingInput from './components/FloatingInput';
 import BrandGrid, { BRANDS } from './components/BrandGrid';
 import VariantSelect from './components/VariantSelect';
 import DashboardView from './components/DashboardView';
+import WelcomeModal from './components/WelcomeModal';
 import './App.css';
 
 const defaultBrand = BRANDS.find(b => b.id === 'audi');
@@ -228,9 +229,9 @@ export default function App() {
       setTimeout(() => {
         setLoading(false);
         setLoggedIn(true);
+        setShowWelcome(true);
         requestAnimationFrame(() => requestAnimationFrame(() => {
           setDashVisible(true);
-          setShowWelcome(true);
         }));
       }, 3200);
     }, 380);
@@ -261,16 +262,17 @@ export default function App() {
       );
     }
     return (
-      <div style={{ opacity: dashVisible ? 1 : 0, transition: 'opacity 0.4s ease', width: '100%', height: '100%' }}>
-        <DashboardView
-          activeBrand={activeBrand} onBrandChange={handleBrandChange} onLogout={handleLogout}
-          showWelcome={showWelcome}
-          onWelcomeDone={() => { setShowWelcome(false); setShowTutorial(true); }}
-          showTutorial={showTutorial}
-          onTutorialDone={() => setShowTutorial(false)}
-          onShowGuide={() => { setShowWelcome(false); setShowTutorial(true); }}
-        />
-      </div>
+      <>
+        <div style={{ opacity: dashVisible ? 1 : 0, transition: 'opacity 0.4s ease', width: '100%', height: '100%' }}>
+          <DashboardView
+            activeBrand={activeBrand} onBrandChange={handleBrandChange} onLogout={handleLogout}
+            showTutorial={showTutorial}
+            onTutorialDone={() => setShowTutorial(false)}
+            onShowGuide={() => { setShowWelcome(false); setShowTutorial(true); }}
+          />
+        </div>
+        {showWelcome && <WelcomeModal onStart={() => { setShowWelcome(false); setShowTutorial(true); }} />}
+      </>
     );
   }
 
