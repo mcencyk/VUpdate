@@ -422,7 +422,7 @@ export default function App() {
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <AppButton onClick={openDisclaimer}>Help</AppButton>
+          <AppButton onClick={openDisclaimer}>About</AppButton>
           <AppButton primary onClick={handleLogin}>Login</AppButton>
         </div>
       </div>
